@@ -67,10 +67,15 @@ reading the source code.
 Ideas parked here are explicitly **out of scope** for v1 (see
 `docs/requirements.md` §2.2) and only worth picking up once the above is stable:
 
-- [ ] System tray icon / GUI wrapper instead of pure CLI.
-- [ ] Optional local history of sessions (for personal stats, not shared).
-- [ ] Package for common OS package managers (Homebrew, AUR, etc.).
-- [ ] Config hot-reload without restart.
+- [x] Optional local history of sessions (for personal stats, not shared) — see
+      `internal/history`; opt-in via `history.file`.
+- [x] Config hot-reload without restart — a polling watcher restarts the scheduler when
+      the config file changes.
+- [ ] System tray icon / GUI wrapper instead of pure CLI — *not pursued*: requires
+      CGo/GUI dependencies, which conflicts with the single static binary goal
+      (`AGENTS.md`).
+- [ ] Package for common OS package managers (Homebrew, AUR, etc.) — *not pursued here*:
+      needs packaging repos outside this codebase; revisit on demand.
 
 ## Non-goals (won't do, at least not under this project)
 
