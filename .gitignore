@@ -1,0 +1,8 @@
+# Binaries
+/htb-presence
+/bin/
+/dist/
+
+# Local config that may contain tokens
+config.yaml
+config.local.yaml
