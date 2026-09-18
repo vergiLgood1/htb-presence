@@ -222,3 +222,82 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 	t.Fatal("condition was not met before the deadline")
 }
+
+func TestRetryDelayNetworkBackoff(t *testing.T) {
+	s := testScheduler(&fakeFetcher{err: errors.New("network down")}, &fakeClient{})
+	s.Interval = time.Minute
+
+	first := s.tick(context.Background())
+	second := s.tick(context.Background())
+	third := s.tick(context.Background())
+
+	if first != time.Minute {
+		t.Errorf("first delay = %s, want 1m", first)
+	}
+	if second != 2*time.Minute {
+		t.Errorf("second delay = %s, want 2m", second)
+	}
+	if third != 4*time.Minute {
+		t.Errorf("third delay = %s, want 4m", third)
+	}
+}
+
+func TestRetryDelayHonorsRetryAfter(t *testing.T) {
+	fetcher := &fakeFetcher{err: &htb.RateLimitError{RetryAfter: 5 * time.Minute}}
+	s := testScheduler(fetcher, &fakeClient{})
+	s.Interval = time.Second
+
+	if got := s.tick(context.Background()); got != 5*time.Minute {
+		t.Errorf("delay = %s, want 5m (Retry-After)", got)
+	}
+}
+
+func TestRetryDelayAuthIsSlowerAndFixed(t *testing.T) {
+	s := testScheduler(&fakeFetcher{err: htb.ErrAuth}, &fakeClient{})
+	s.Interval = time.Second
+	s.MaxBackoff = time.Hour
+
+	first := s.tick(context.Background())
+	second := s.tick(context.Background())
+
+	if first != 5*time.Second || second != 5*time.Second {
+		t.Errorf("auth delays = %s, %s, want 5s, 5s (slow but not escalating)", first, second)
+	}
+}
+
+func TestRetryDelayCappedByMaxBackoff(t *testing.T) {
+	s := testScheduler(&fakeFetcher{err: errors.New("network down")}, &fakeClient{})
+	s.Interval = time.Minute
+	s.MaxBackoff = 5 * time.Minute
+
+	var got time.Duration
+	for i := 0; i < 6; i++ {
+		got = s.tick(context.Background())
+	}
+
+	if got != 5*time.Minute {
+		t.Errorf("delay = %s, want 5m (MaxBackoff cap)", got)
+	}
+}
+
+func TestRetryDelayResetsAfterSuccess(t *testing.T) {
+	fetcher := &fakeFetcher{err: errors.New("network down")}
+	s := testScheduler(fetcher, &fakeClient{})
+	s.Interval = time.Minute
+
+	if got := s.tick(context.Background()); got != time.Minute {
+		t.Fatalf("failure delay = %s, want 1m", got)
+	}
+
+	fetcher.err = nil
+	fetcher.activity = active(289, "Vaccine")
+	if got := s.tick(context.Background()); got != time.Minute {
+		t.Fatalf("success delay = %s, want 1m", got)
+	}
+
+	fetcher.err = errors.New("network down")
+	fetcher.activity = nil
+	if got := s.tick(context.Background()); got != time.Minute {
+		t.Errorf("delay after reset = %s, want 1m (backoff restarted)", got)
+	}
+}

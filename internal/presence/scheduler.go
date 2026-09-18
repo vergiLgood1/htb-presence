@@ -2,6 +2,7 @@ package presence
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -20,15 +21,23 @@ type DiscordClient interface {
 // ClientFactory connects to the local Discord client.
 type ClientFactory func(ctx context.Context) (DiscordClient, error)
 
+// DefaultMaxBackoff caps the delay between retries after repeated failures.
+const DefaultMaxBackoff = 10 * time.Minute
+
 // Scheduler polls HTB and keeps Discord Rich Presence in sync.
 //
 // It fails soft: a failed HTB fetch keeps the last known presence, and a failed
-// Discord call drops the connection so the next tick reconnects.
+// Discord call drops the connection so the next poll reconnects. The delay
+// between polls backs off while failures continue and returns to Interval once
+// they clear.
 type Scheduler struct {
 	Fetcher  htb.Fetcher
 	Connect  ClientFactory
 	Interval time.Duration
 	Options  Options
+
+	// MaxBackoff caps the delay between retries; defaults to DefaultMaxBackoff.
+	MaxBackoff time.Duration
 
 	// Logger receives diagnostic output; defaults to slog.Default.
 	Logger *slog.Logger
@@ -40,62 +49,116 @@ type Scheduler struct {
 	session   session
 	last      *discord.Activity
 	published bool
+	failures  int
 }
 
 // Run polls until ctx is cancelled, then clears the presence and disconnects.
 func (s *Scheduler) Run(ctx context.Context) {
-	ticker := time.NewTicker(s.Interval)
-	defer ticker.Stop()
+	timer := time.NewTimer(0)
+	defer timer.Stop()
 
-	s.tick(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			s.shutdown()
 			return
-		case <-ticker.C:
-			s.tick(ctx)
+		case <-timer.C:
+			timer.Reset(s.tick(ctx))
 		}
 	}
 }
 
-// tick runs one poll cycle.
-func (s *Scheduler) tick(ctx context.Context) {
+// tick runs one poll cycle and returns the delay until the next one.
+func (s *Scheduler) tick(ctx context.Context) time.Duration {
+	activity, err := s.Fetcher.CurrentActivity(ctx)
+	if err != nil {
+		s.failures++
+		delay := s.retryDelay(err)
+		s.logger().Warn("fetching HTB activity failed, keeping last presence",
+			"error", err, "retry_in", delay)
+		return delay
+	}
+
 	if s.client == nil {
 		client, err := s.Connect(ctx)
 		if err != nil {
-			s.logger().Warn("discord unavailable, will retry next poll", "error", err)
-			return
+			s.failures++
+			delay := s.retryDelay(err)
+			s.logger().Warn("discord unavailable, will retry", "error", err, "retry_in", delay)
+			return delay
 		}
 		s.client = client
 		s.published = false
 		s.logger().Info("connected to discord")
 	}
 
-	activity, err := s.Fetcher.CurrentActivity(ctx)
-	if err != nil {
-		s.logger().Warn("fetching HTB activity failed, keeping last presence", "error", err)
-		return
-	}
-
 	start := s.session.Start(machineID(activity), s.now())
 	next := Map(activity, Options{ShowTimer: s.Options.ShowTimer, SessionStart: start})
 
 	if s.published && s.last != nil && *s.last == *next {
-		return
+		s.failures = 0
+		return s.interval()
 	}
 
 	if err := s.client.SetActivity(ctx, next); err != nil {
-		s.logger().Warn("updating discord presence failed, will reconnect", "error", err)
+		s.failures++
+		delay := s.retryDelay(err)
+		s.logger().Warn("updating discord presence failed, will reconnect",
+			"error", err, "retry_in", delay)
 		s.client.Close()
 		s.client = nil
 		s.published = false
-		return
+		return delay
 	}
 
 	s.last = next
 	s.published = true
+	s.failures = 0
 	s.logger().Info("presence updated", "details", next.Details, "state", next.State)
+	return s.interval()
+}
+
+// retryDelay returns how long to wait before the next attempt after a failure.
+//
+// Rate limits honor Retry-After; authentication failures retry at a slower but
+// fixed interval (the user may fix the token without restarting); everything
+// else backs off exponentially, capped by MaxBackoff.
+func (s *Scheduler) retryDelay(err error) time.Duration {
+	interval := s.interval()
+
+	var rateLimit *htb.RateLimitError
+	if errors.As(err, &rateLimit) && rateLimit.RetryAfter > interval {
+		return rateLimit.RetryAfter
+	}
+
+	if errors.Is(err, htb.ErrAuth) {
+		return min(5*interval, s.maxBackoff())
+	}
+
+	exponent := s.failures - 1
+	if exponent < 0 {
+		exponent = 0
+	}
+	if exponent > 10 {
+		exponent = 10
+	}
+	return min(interval<<exponent, s.maxBackoff())
+}
+
+// interval returns the configured poll interval, defaulting to one second.
+func (s *Scheduler) interval() time.Duration {
+	if s.Interval > 0 {
+		return s.Interval
+	}
+	return time.Second
+}
+
+// maxBackoff returns the configured backoff cap, defaulting to DefaultMaxBackoff.
+func (s *Scheduler) maxBackoff() time.Duration {
+	if s.MaxBackoff > 0 {
+		return s.MaxBackoff
+	}
+	return DefaultMaxBackoff
 }
 
 // shutdown clears the presence and closes the Discord connection.
