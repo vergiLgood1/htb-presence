@@ -66,7 +66,8 @@ community reverse-engineering:
   - Fetch the user's current activity — the specific endpoint(s) for "active
     machine/session" must be confirmed against `GoToolSharing/htb-cli`'s source and/or
     `Propolisa/htb-api-docs` at implementation time, not assumed from this document.
-  - Optionally fetch rank/points for display.
+  - Optionally fetch rank/points for display (account id from `/user/info`, then
+    `/user/profile/basic/{id}` for rank and points).
   - Translate HTTP/auth/rate-limit errors into typed errors the scheduler can react to
     (retry vs. fatal), and detect likely "API shape changed" errors (e.g. unexpected
     JSON structure) as a distinct, loud failure mode rather than silently returning

@@ -3,6 +3,7 @@
 package presence
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -15,6 +16,13 @@ const LargeImageAsset = "htb"
 
 // Options controls how activity is rendered.
 type Options struct {
+	// ShowMachineName includes the machine name as the presence details; when
+	// false the details stay generic.
+	ShowMachineName bool
+
+	// ShowRank includes the user's rank and points in the presence state.
+	ShowRank bool
+
 	// ShowTimer includes an elapsed-time timer on the presence.
 	ShowTimer bool
 
@@ -27,31 +35,45 @@ type Options struct {
 // or one without an active machine, maps to a neutral browsing state rather
 // than stale data.
 func Map(activity *htb.Activity, opts Options) *discord.Activity {
-	if activity == nil || activity.Machine == nil {
-		return &discord.Activity{
-			Details:    "Hack The Box",
-			State:      "Browsing…",
-			LargeImage: LargeImageAsset,
-			LargeText:  "Hack The Box",
-		}
-	}
-
-	m := activity.Machine
-	name := m.Name
-	if name == "" {
-		name = "A machine"
-	}
+	idle := activity == nil || activity.Machine == nil
 
 	out := &discord.Activity{
-		Details:    name,
-		State:      joinNonEmpty(" · ", m.OS, m.Difficulty),
+		Details:    "Hack The Box",
 		LargeImage: LargeImageAsset,
 		LargeText:  "Hack The Box",
 	}
-	if opts.ShowTimer && !opts.SessionStart.IsZero() {
+
+	var stateParts []string
+	if idle {
+		stateParts = append(stateParts, "Browsing…")
+	} else {
+		m := activity.Machine
+		if opts.ShowMachineName {
+			out.Details = orDefault(m.Name, "A machine")
+		}
+		stateParts = append(stateParts, m.OS, m.Difficulty)
+	}
+
+	if opts.ShowRank && activity != nil && activity.User != nil {
+		stateParts = append(stateParts, rankLabel(activity.User))
+	}
+	out.State = joinNonEmpty(" · ", stateParts...)
+
+	if opts.ShowTimer && !idle && !opts.SessionStart.IsZero() {
 		out.StartTime = opts.SessionStart
 	}
 	return out
+}
+
+// rankLabel renders a user's rank and points, e.g. "Pro Hacker · 1234 pts".
+func rankLabel(u *htb.User) string {
+	if u.Rank == "" {
+		return ""
+	}
+	if u.Points > 0 {
+		return fmt.Sprintf("%s · %d pts", u.Rank, u.Points)
+	}
+	return u.Rank
 }
 
 // joinNonEmpty joins the non-blank parts with sep.
@@ -63,4 +85,12 @@ func joinNonEmpty(sep string, parts ...string) string {
 		}
 	}
 	return strings.Join(kept, sep)
+}
+
+// orDefault returns s, or fallback when s is blank.
+func orDefault(s, fallback string) string {
+	if strings.TrimSpace(s) == "" {
+		return fallback
+	}
+	return s
 }

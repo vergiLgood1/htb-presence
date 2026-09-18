@@ -41,9 +41,12 @@ type HTB struct {
 
 // Discord holds the Discord Rich Presence settings.
 type Discord struct {
-	ClientID  string `yaml:"client_id"`
-	ShowRank  bool   `yaml:"show_rank"`
-	ShowTimer bool   `yaml:"show_timer"`
+	ClientID string `yaml:"client_id"`
+
+	// Privacy toggles. All default to true (see Default).
+	ShowMachineName bool `yaml:"show_machine_name"`
+	ShowRank        bool `yaml:"show_rank"`
+	ShowTimer       bool `yaml:"show_timer"`
 }
 
 // Duration is a time.Duration that unmarshals from a Go duration string such as
@@ -70,8 +73,9 @@ func Default() Config {
 	return Config{
 		HTB: HTB{PollInterval: Duration(DefaultPollInterval)},
 		Discord: Discord{
-			ShowRank:  true,
-			ShowTimer: true,
+			ShowMachineName: true,
+			ShowRank:        true,
+			ShowTimer:       true,
 		},
 	}
 }

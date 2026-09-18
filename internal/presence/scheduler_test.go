@@ -14,12 +14,20 @@ import (
 )
 
 type fakeFetcher struct {
-	activity *htb.Activity
-	err      error
+	activity  *htb.Activity
+	err       error
+	user      *htb.User
+	userErr   error
+	userCalls int
 }
 
 func (f *fakeFetcher) CurrentActivity(context.Context) (*htb.Activity, error) {
 	return f.activity, f.err
+}
+
+func (f *fakeFetcher) User(context.Context) (*htb.User, error) {
+	f.userCalls++
+	return f.user, f.userErr
 }
 
 type fakeClient struct {
@@ -65,7 +73,7 @@ func testScheduler(fetcher htb.Fetcher, client DiscordClient) *Scheduler {
 		Fetcher:  fetcher,
 		Connect:  func(context.Context) (DiscordClient, error) { return client, nil },
 		Interval: time.Hour,
-		Options:  Options{ShowTimer: true},
+		Options:  Options{ShowMachineName: true, ShowTimer: true},
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now:      func() time.Time { return time.Unix(1000, 0) },
 	}
@@ -299,5 +307,58 @@ func TestRetryDelayResetsAfterSuccess(t *testing.T) {
 	fetcher.activity = nil
 	if got := s.tick(context.Background()); got != time.Minute {
 		t.Errorf("delay after reset = %s, want 1m (backoff restarted)", got)
+	}
+}
+
+func TestTickIncludesRank(t *testing.T) {
+	fetcher := &fakeFetcher{
+		activity: active(289, "Vaccine"),
+		user:     &htb.User{Rank: "Noob", Points: 120},
+	}
+	client := &fakeClient{}
+	s := testScheduler(fetcher, client)
+	s.Options = Options{ShowMachineName: true, ShowRank: true}
+
+	s.tick(context.Background())
+
+	updates := client.snapshot()
+	if len(updates) != 1 {
+		t.Fatalf("updates = %d, want 1", len(updates))
+	}
+	if updates[0].State != "Linux · Easy · Noob · 120 pts" {
+		t.Errorf("State = %q, want rank included", updates[0].State)
+	}
+}
+
+func TestRankIsCached(t *testing.T) {
+	fetcher := &fakeFetcher{activity: active(289, "Vaccine"), user: &htb.User{Rank: "Noob"}}
+	s := testScheduler(fetcher, &fakeClient{})
+	s.Options = Options{ShowMachineName: true, ShowRank: true}
+
+	s.tick(context.Background())
+	s.tick(context.Background())
+
+	if fetcher.userCalls != 1 {
+		t.Errorf("userCalls = %d, want 1 (rank cached within RankRefresh)", fetcher.userCalls)
+	}
+}
+
+func TestRankFailureStillPublishes(t *testing.T) {
+	fetcher := &fakeFetcher{activity: active(289, "Vaccine"), userErr: errors.New("rank down")}
+	client := &fakeClient{}
+	s := testScheduler(fetcher, client)
+	s.Options = Options{ShowMachineName: true, ShowRank: true}
+
+	s.tick(context.Background())
+
+	updates := client.snapshot()
+	if len(updates) != 1 {
+		t.Fatalf("updates = %d, want 1", len(updates))
+	}
+	if updates[0].Details != "Vaccine" {
+		t.Errorf("Details = %q, want Vaccine", updates[0].Details)
+	}
+	if updates[0].State != "Linux · Easy" {
+		t.Errorf("State = %q, want no rank after a rank fetch failure", updates[0].State)
 	}
 }

@@ -24,6 +24,10 @@ type ClientFactory func(ctx context.Context) (DiscordClient, error)
 // DefaultMaxBackoff caps the delay between retries after repeated failures.
 const DefaultMaxBackoff = 10 * time.Minute
 
+// DefaultRankRefresh is how long a fetched rank is reused before refreshing.
+// Rank and points change slowly, so this avoids an extra API call every poll.
+const DefaultRankRefresh = 10 * time.Minute
+
 // Scheduler polls HTB and keeps Discord Rich Presence in sync.
 //
 // It fails soft: a failed HTB fetch keeps the last known presence, and a failed
@@ -42,14 +46,20 @@ type Scheduler struct {
 	// Logger receives diagnostic output; defaults to slog.Default.
 	Logger *slog.Logger
 
+	// RankRefresh is how long a fetched rank is reused before refreshing;
+	// defaults to DefaultRankRefresh.
+	RankRefresh time.Duration
+
 	// Now supplies the current time, for tests. Defaults to time.Now.
 	Now func() time.Time
 
-	client    DiscordClient
-	session   session
-	last      *discord.Activity
-	published bool
-	failures  int
+	client        DiscordClient
+	session       session
+	last          *discord.Activity
+	published     bool
+	failures      int
+	user          *htb.User
+	userFetchedAt time.Time
 }
 
 // Run polls until ctx is cancelled, then clears the presence and disconnects.
@@ -92,8 +102,23 @@ func (s *Scheduler) tick(ctx context.Context) time.Duration {
 		s.logger().Info("connected to discord")
 	}
 
+	if s.Options.ShowRank {
+		user, err := s.cachedUser(ctx)
+		if err != nil {
+			s.logger().Warn("fetching HTB rank failed, using the cached value if any", "error", err)
+		}
+		if user != nil {
+			activity.User = user
+		}
+	}
+
 	start := s.session.Start(machineID(activity), s.now())
-	next := Map(activity, Options{ShowTimer: s.Options.ShowTimer, SessionStart: start})
+	next := Map(activity, Options{
+		ShowMachineName: s.Options.ShowMachineName,
+		ShowRank:        s.Options.ShowRank,
+		ShowTimer:       s.Options.ShowTimer,
+		SessionStart:    start,
+	})
 
 	if s.published && s.last != nil && *s.last == *next {
 		s.failures = 0
@@ -159,6 +184,30 @@ func (s *Scheduler) maxBackoff() time.Duration {
 		return s.MaxBackoff
 	}
 	return DefaultMaxBackoff
+}
+
+// cachedUser returns the user's rank, refreshing it at most every RankRefresh.
+// On a refresh error it returns the last known value alongside the error.
+func (s *Scheduler) cachedUser(ctx context.Context) (*htb.User, error) {
+	if s.user != nil && s.now().Sub(s.userFetchedAt) < s.rankRefresh() {
+		return s.user, nil
+	}
+
+	user, err := s.Fetcher.User(ctx)
+	if err != nil {
+		return s.user, err
+	}
+	s.user = user
+	s.userFetchedAt = s.now()
+	return user, nil
+}
+
+// rankRefresh returns the configured rank refresh interval.
+func (s *Scheduler) rankRefresh() time.Duration {
+	if s.RankRefresh > 0 {
+		return s.RankRefresh
+	}
+	return DefaultRankRefresh
 }
 
 // shutdown clears the presence and closes the Discord connection.

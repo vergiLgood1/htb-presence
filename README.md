@@ -38,6 +38,7 @@ htb:
 
 discord:
   client_id: "your-discord-application-id"
+  show_machine_name: true
   show_rank: true
   show_timer: true
 ```

@@ -32,6 +32,7 @@ htb:
   poll_interval: 45s
 discord:
   client_id: "1234567890"
+  show_machine_name: false
   show_rank: false
   show_timer: false
 `,
@@ -45,9 +46,9 @@ discord:
 				if cfg.Discord.ClientID != "1234567890" {
 					t.Errorf("ClientID = %q", cfg.Discord.ClientID)
 				}
-				if cfg.Discord.ShowRank || cfg.Discord.ShowTimer {
-					t.Errorf("ShowRank/ShowTimer = %v/%v, want false/false",
-						cfg.Discord.ShowRank, cfg.Discord.ShowTimer)
+				if cfg.Discord.ShowMachineName || cfg.Discord.ShowRank || cfg.Discord.ShowTimer {
+					t.Errorf("ShowMachineName/ShowRank/ShowTimer = %v/%v/%v, want false/false/false",
+						cfg.Discord.ShowMachineName, cfg.Discord.ShowRank, cfg.Discord.ShowTimer)
 				}
 			},
 		},
@@ -63,9 +64,9 @@ discord:
 				if got := time.Duration(cfg.HTB.PollInterval); got != DefaultPollInterval {
 					t.Errorf("PollInterval = %s, want default %s", got, DefaultPollInterval)
 				}
-				if !cfg.Discord.ShowRank || !cfg.Discord.ShowTimer {
-					t.Errorf("ShowRank/ShowTimer = %v/%v, want true/true",
-						cfg.Discord.ShowRank, cfg.Discord.ShowTimer)
+				if !cfg.Discord.ShowMachineName || !cfg.Discord.ShowRank || !cfg.Discord.ShowTimer {
+					t.Errorf("ShowMachineName/ShowRank/ShowTimer = %v/%v/%v, want true/true/true",
+						cfg.Discord.ShowMachineName, cfg.Discord.ShowRank, cfg.Discord.ShowTimer)
 				}
 			},
 		},

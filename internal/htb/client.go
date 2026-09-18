@@ -65,16 +65,27 @@ type Machine struct {
 	ExpiresAt  time.Time
 }
 
-// Activity is the user's current HTB activity. A nil Machine means the user has
-// no active machine.
-type Activity struct {
-	Machine *Machine
+// User describes the authenticated user's standing on HTB.
+type User struct {
+	Name   string
+	Rank   string
+	Points int
 }
 
-// Fetcher fetches the current HTB activity. It exists so the mapping and
-// scheduling layers can be tested without a live HTB account.
+// Activity is the user's current HTB activity. A nil Machine means the user has
+// no active machine; a nil User means rank/points were not loaded.
+type Activity struct {
+	Machine *Machine
+	User    *User
+}
+
+// Fetcher fetches HTB state. It exists so the mapping and scheduling layers can
+// be tested without a live HTB account.
 type Fetcher interface {
+	// CurrentActivity reports the active machine, if any.
 	CurrentActivity(ctx context.Context) (*Activity, error)
+	// User reports the authenticated user's rank and points.
+	User(ctx context.Context) (*User, error)
 }
 
 // Client is an HTB API client.
@@ -158,6 +169,44 @@ func (c *Client) CurrentActivity(ctx context.Context) (*Activity, error) {
 	machine.Difficulty = profile.Difficulty
 
 	return &Activity{Machine: machine}, nil
+}
+
+// User reports the authenticated user's name, rank and points.
+//
+// It resolves the account id from /user/info and then reads rank and points
+// from /user/profile/basic/{id}, mirroring the calls HTB's web app makes.
+func (c *Client) User(ctx context.Context) (*User, error) {
+	var info struct {
+		Info *struct {
+			ID   int    `json:"id"`
+			Name string `json:"name"`
+		} `json:"info"`
+	}
+	if err := c.get(ctx, "/user/info", &info); err != nil {
+		return nil, err
+	}
+	if info.Info == nil || info.Info.ID == 0 {
+		return nil, fmt.Errorf("%w: /user/info is missing an id", ErrUnexpectedResponse)
+	}
+
+	var profile struct {
+		Profile *struct {
+			Rank   string `json:"rank"`
+			Points int    `json:"points"`
+		} `json:"profile"`
+	}
+	if err := c.get(ctx, fmt.Sprintf("/user/profile/basic/%d", info.Info.ID), &profile); err != nil {
+		return nil, err
+	}
+	if profile.Profile == nil {
+		return nil, fmt.Errorf("%w: /user/profile/basic/%d is missing a profile", ErrUnexpectedResponse, info.Info.ID)
+	}
+
+	return &User{
+		Name:   info.Info.Name,
+		Rank:   profile.Profile.Rank,
+		Points: profile.Profile.Points,
+	}, nil
 }
 
 // machineProfile holds the subset of /machine/profile/{id} this app cares about.

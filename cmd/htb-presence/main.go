@@ -60,8 +60,12 @@ func run() error {
 			return discord.Dial(ctx, cfg.Discord.ClientID)
 		},
 		Interval: time.Duration(cfg.HTB.PollInterval),
-		Options:  presence.Options{ShowTimer: cfg.Discord.ShowTimer},
-		Logger:   slog.Default(),
+		Options: presence.Options{
+			ShowMachineName: cfg.Discord.ShowMachineName,
+			ShowRank:        cfg.Discord.ShowRank,
+			ShowTimer:       cfg.Discord.ShowTimer,
+		},
+		Logger: slog.Default(),
 	}
 	scheduler.Run(ctx)
 	return nil
