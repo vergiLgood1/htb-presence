@@ -18,6 +18,9 @@ import (
 	"github.com/vergiLgood1/htb-presence/internal/presence"
 )
 
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal", "error", err)
@@ -33,15 +36,22 @@ func run() error {
 
 	configPath := flag.String("config", defaultPath, "path to the config file")
 	once := flag.Bool("once", false, "fetch the current activity once, print it, and exit (debug)")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+
+	if *showVersion {
+		fmt.Printf("htb-presence %s\n", version)
+		return nil
+	}
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		return err
 	}
 	slog.Info("config loaded",
+		"version", version,
 		"path", *configPath,
 		"poll_interval", time.Duration(cfg.HTB.PollInterval),
 		"htb_token", config.MaskToken(cfg.HTB.APIToken),
