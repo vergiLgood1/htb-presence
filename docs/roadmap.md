@@ -48,7 +48,7 @@ updating promptly as it changes.
 - [x] Retry/backoff + reconnect for Discord IPC drops.
 - [x] Clean shutdown on SIGINT/SIGTERM (clears presence).
 - [x] Structured logging with sensible levels; token masking.
-- [ ] Privacy toggles: hide machine name / hide rank / etc., driven by config.
+- [x] Privacy toggles: hide machine name / hide rank / etc., driven by config.
 
 **Exit criteria:** the app can run unattended for days without manual intervention.
 
