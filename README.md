@@ -125,6 +125,7 @@ If you (or an AI coding agent) are working in this repo, please read
 | [`docs/architecture.md`](docs/architecture.md) | System design, components, data flow |
 | [`docs/roadmap.md`](docs/roadmap.md) | Milestones and phased delivery plan |
 | [`docs/legal.md`](docs/legal.md) | Unofficial-use disclaimer and ToS review checklist |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history |
 
 ## License
 
