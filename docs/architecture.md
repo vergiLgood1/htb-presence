@@ -42,6 +42,8 @@ flowchart LR
 - Supplies typed config to every other component; nothing else touches the raw file.
 - Responsible for defaults (e.g. poll interval floor of 15s) and validation errors that
   fail fast at startup with a clear message.
+- Also carries the optional, off-by-default local session-history path (`history.file`);
+  editing the file is picked up at runtime by a polling watcher.
 
 ### 2.2 HTB Client (`internal/htb`)
 

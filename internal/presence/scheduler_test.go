@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/vergiLgood1/htb-presence/internal/discord"
+	"github.com/vergiLgood1/htb-presence/internal/history"
 	"github.com/vergiLgood1/htb-presence/internal/htb"
 )
 
@@ -58,6 +59,28 @@ func (c *fakeClient) snapshot() []*discord.Activity {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return append([]*discord.Activity(nil), c.updates...)
+}
+
+type fakeRecorder struct {
+	mu      sync.Mutex
+	records []history.Session
+	err     error
+}
+
+func (r *fakeRecorder) Record(s history.Session) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.err != nil {
+		return r.err
+	}
+	r.records = append(r.records, s)
+	return nil
+}
+
+func (r *fakeRecorder) snapshot() []history.Session {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]history.Session(nil), r.records...)
 }
 
 func active(id int, name string) *htb.Activity {
@@ -360,5 +383,31 @@ func TestRankFailureStillPublishes(t *testing.T) {
 	}
 	if updates[0].State != "Linux · Easy" {
 		t.Errorf("State = %q, want no rank after a rank fetch failure", updates[0].State)
+	}
+}
+
+func TestHistoryRecordsSessionOnMachineChange(t *testing.T) {
+	fetcher := &fakeFetcher{activity: active(289, "Vaccine")}
+	recorder := &fakeRecorder{}
+	s := testScheduler(fetcher, &fakeClient{})
+	s.History = recorder
+	s.Now = func() time.Time { return time.Unix(1000, 0) }
+
+	s.tick(context.Background())
+
+	fetcher.activity = active(290, "Keeper")
+	s.Now = func() time.Time { return time.Unix(2000, 0) }
+	s.tick(context.Background())
+
+	records := recorder.snapshot()
+	if len(records) != 1 {
+		t.Fatalf("records = %d, want 1", len(records))
+	}
+	got := records[0]
+	if got.MachineID != 289 || got.MachineName != "Vaccine" {
+		t.Errorf("recorded %+v, want the Vaccine session", got)
+	}
+	if !got.StartedAt.Equal(time.Unix(1000, 0)) || !got.EndedAt.Equal(time.Unix(2000, 0)) {
+		t.Errorf("recorded %s..%s, want 1000..2000", got.StartedAt, got.EndedAt)
 	}
 }

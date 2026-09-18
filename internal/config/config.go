@@ -31,6 +31,13 @@ const (
 type Config struct {
 	HTB     HTB     `yaml:"htb"`
 	Discord Discord `yaml:"discord"`
+	History History `yaml:"history"`
+}
+
+// History holds the optional local session-history settings.
+type History struct {
+	// File is the path of a JSONL session log. Empty disables history.
+	File string `yaml:"file"`
 }
 
 // HTB holds the Hack The Box API settings.

@@ -72,6 +72,9 @@ discord:
   show_machine_name: true   # privacy toggles
   show_rank: true
   show_timer: true
+
+history:
+  file: ""                  # optional JSONL session log; empty disables it
 ```
 
 The App Token is never logged in full — it is redacted as e.g. `eyJ0…`.

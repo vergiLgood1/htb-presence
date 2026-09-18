@@ -134,19 +134,33 @@ func TestSession(t *testing.T) {
 
 	var s session
 
-	if got := s.Start(0, first); !got.IsZero() {
-		t.Errorf("idle Start = %s, want zero", got)
+	if start, ended := s.observe(nil, first); !start.IsZero() || ended != nil {
+		t.Errorf("observe(idle) = (%s, %+v), want (zero, nil)", start, ended)
 	}
-	if got := s.Start(289, first); !got.Equal(first) {
-		t.Errorf("Start = %s, want %s", got, first)
+	if start, ended := s.observe(&htb.Machine{ID: 289, Name: "Vaccine"}, first); !start.Equal(first) || ended != nil {
+		t.Errorf("observe(Vaccine) = (%s, %+v), want (%s, nil)", start, ended, first)
 	}
-	if got := s.Start(289, second); !got.Equal(first) {
-		t.Errorf("Start after same machine = %s, want %s (unchanged)", got, first)
+	if start, ended := s.observe(&htb.Machine{ID: 289, Name: "Vaccine"}, second); !start.Equal(first) || ended != nil {
+		t.Errorf("observe(same machine) = (%s, %+v), want (%s, nil)", start, ended, first)
 	}
-	if got := s.Start(290, second); !got.Equal(second) {
-		t.Errorf("Start after machine change = %s, want %s", got, second)
+
+	start, ended := s.observe(&htb.Machine{ID: 290, Name: "Keeper"}, second)
+	if !start.Equal(second) {
+		t.Errorf("new machine start = %s, want %s", start, second)
 	}
-	if got := s.Start(0, second); !got.IsZero() {
-		t.Errorf("Start when idle = %s, want zero", got)
+	if ended == nil {
+		t.Fatal("expected the Vaccine session to end")
+	}
+	if ended.MachineID != 289 || ended.MachineName != "Vaccine" ||
+		!ended.StartedAt.Equal(first) || !ended.EndedAt.Equal(second) {
+		t.Errorf("ended = %+v", ended)
+	}
+
+	start, ended = s.observe(nil, second)
+	if !start.IsZero() {
+		t.Errorf("idle start = %s, want zero", start)
+	}
+	if ended == nil || ended.MachineID != 290 {
+		t.Errorf("ended = %+v, want the Keeper session", ended)
 	}
 }

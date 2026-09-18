@@ -14,6 +14,7 @@ import (
 
 	"github.com/vergiLgood1/htb-presence/internal/config"
 	"github.com/vergiLgood1/htb-presence/internal/discord"
+	"github.com/vergiLgood1/htb-presence/internal/history"
 	"github.com/vergiLgood1/htb-presence/internal/htb"
 	"github.com/vergiLgood1/htb-presence/internal/presence"
 )
@@ -77,10 +78,15 @@ func run() error {
 	for {
 		logConfig(*configPath, cfg)
 
+		recorder, err := openHistory(cfg)
+		if err != nil {
+			return err
+		}
+
 		runCtx, cancel := context.WithCancel(ctx)
 		done := make(chan struct{})
 		go func() {
-			newScheduler(cfg).Run(runCtx)
+			newScheduler(cfg, recorder).Run(runCtx)
 			close(done)
 		}()
 
@@ -88,20 +94,30 @@ func run() error {
 		case <-ctx.Done():
 			cancel()
 			<-done
+			recorder.Close()
 			return nil
 		case next := <-reload:
 			slog.Info("config changed, restarting with the new settings")
 			cfg = next
 			cancel()
 			<-done
+			recorder.Close()
 		}
 	}
 }
 
+// openHistory opens the optional session-history file, or nil when disabled.
+func openHistory(cfg *config.Config) (*history.Recorder, error) {
+	if cfg.History.File == "" {
+		return nil, nil
+	}
+	return history.Open(cfg.History.File)
+}
+
 // newScheduler wires the HTB client, Discord IPC connection and poll loop from a
 // resolved config.
-func newScheduler(cfg *config.Config) *presence.Scheduler {
-	return &presence.Scheduler{
+func newScheduler(cfg *config.Config, recorder *history.Recorder) *presence.Scheduler {
+	scheduler := &presence.Scheduler{
 		Fetcher: htb.NewClient(cfg.HTB.APIToken),
 		Connect: func(ctx context.Context) (presence.DiscordClient, error) {
 			return discord.Dial(ctx, cfg.Discord.ClientID)
@@ -114,6 +130,10 @@ func newScheduler(cfg *config.Config) *presence.Scheduler {
 		},
 		Logger: slog.Default(),
 	}
+	if recorder != nil {
+		scheduler.History = recorder
+	}
+	return scheduler
 }
 
 func logConfig(path string, cfg *config.Config) {

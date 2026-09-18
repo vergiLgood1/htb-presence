@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vergiLgood1/htb-presence/internal/discord"
+	"github.com/vergiLgood1/htb-presence/internal/history"
 	"github.com/vergiLgood1/htb-presence/internal/htb"
 )
 
@@ -20,6 +21,11 @@ type DiscordClient interface {
 
 // ClientFactory connects to the local Discord client.
 type ClientFactory func(ctx context.Context) (DiscordClient, error)
+
+// SessionRecorder records completed sessions. It is optional.
+type SessionRecorder interface {
+	Record(history.Session) error
+}
 
 // DefaultMaxBackoff caps the delay between retries after repeated failures.
 const DefaultMaxBackoff = 10 * time.Minute
@@ -39,6 +45,9 @@ type Scheduler struct {
 	Connect  ClientFactory
 	Interval time.Duration
 	Options  Options
+
+	// History optionally records completed sessions; nil disables it.
+	History SessionRecorder
 
 	// MaxBackoff caps the delay between retries; defaults to DefaultMaxBackoff.
 	MaxBackoff time.Duration
@@ -112,7 +121,13 @@ func (s *Scheduler) tick(ctx context.Context) time.Duration {
 		}
 	}
 
-	start := s.session.Start(machineID(activity), s.now())
+	start, ended := s.session.observe(machine(activity), s.now())
+	if ended != nil && s.History != nil {
+		if err := s.History.Record(*ended); err != nil {
+			s.logger().Warn("recording session history failed", "error", err)
+		}
+	}
+
 	next := Map(activity, Options{
 		ShowMachineName: s.Options.ShowMachineName,
 		ShowRank:        s.Options.ShowRank,
@@ -210,8 +225,22 @@ func (s *Scheduler) rankRefresh() time.Duration {
 	return DefaultRankRefresh
 }
 
-// shutdown clears the presence and closes the Discord connection.
+// shutdown clears the presence, records any in-flight session, and closes the
+// Discord connection.
 func (s *Scheduler) shutdown() {
+	if s.session.machineID != 0 && s.History != nil {
+		ended := history.Session{
+			MachineID:   s.session.machineID,
+			MachineName: s.session.machineName,
+			StartedAt:   s.session.start,
+			EndedAt:     s.now(),
+		}
+		if err := s.History.Record(ended); err != nil {
+			s.logger().Warn("recording session history failed", "error", err)
+		}
+		s.session = session{}
+	}
+
 	if s.client == nil {
 		return
 	}
@@ -242,32 +271,48 @@ func (s *Scheduler) now() time.Time {
 	return time.Now()
 }
 
-// machineID returns the active machine's id, or 0 when there is none.
-func machineID(activity *htb.Activity) int {
-	if activity == nil || activity.Machine == nil {
-		return 0
+// machine returns the active machine, or nil when there is none.
+func machine(activity *htb.Activity) *htb.Machine {
+	if activity == nil {
+		return nil
 	}
-	return activity.Machine.ID
+	return activity.Machine
 }
 
-// session remembers when the observed machine session started, so the presence
-// timer stays stable across polls.
+// session tracks the currently observed machine session.
 type session struct {
-	machineID int
-	start     time.Time
+	machineID   int
+	machineName string
+	start       time.Time
 }
 
-// Start returns the session start time for the given machine, resetting it when
-// the active machine changes. It returns the zero time when idle.
-func (s *session) Start(machineID int, now time.Time) time.Time {
-	if machineID == 0 {
-		s.machineID = 0
-		s.start = time.Time{}
-		return time.Time{}
+// observe updates the session for the given machine (nil when idle) and returns
+// the session start time, along with the previous session if it just ended.
+func (s *session) observe(m *htb.Machine, now time.Time) (time.Time, *history.Session) {
+	id, name := 0, ""
+	if m != nil {
+		id, name = m.ID, m.Name
 	}
-	if machineID != s.machineID {
-		s.machineID = machineID
+
+	if id == s.machineID {
+		return s.start, nil
+	}
+
+	var ended *history.Session
+	if s.machineID != 0 {
+		ended = &history.Session{
+			MachineID:   s.machineID,
+			MachineName: s.machineName,
+			StartedAt:   s.start,
+			EndedAt:     now,
+		}
+	}
+
+	s.machineID, s.machineName = id, name
+	if id == 0 {
+		s.start = time.Time{}
+	} else {
 		s.start = now
 	}
-	return s.start
+	return s.start, ended
 }
