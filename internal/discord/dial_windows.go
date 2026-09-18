@@ -4,20 +4,14 @@ package discord
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
+
+	"github.com/Microsoft/go-winio"
 )
 
-// windowsPipeSupport is false until named-pipe transport is implemented.
-//
-// Discord exposes Rich Presence over named pipes on Windows
-// (\\.\pipe\discord-ipc-N). Go's standard library cannot dial named pipes, so
-// this needs either a small syscall implementation or a dependency such as
-// github.com/Microsoft/go-winio. Tracked as a Phase 4 (distribution) task.
-const windowsPipeSupport = false
-
-// candidatePaths returns the Windows named-pipe paths Discord listens on.
+// candidatePaths returns the Windows named-pipe paths Discord listens on, in
+// the order they should be probed.
 func candidatePaths() []string {
 	paths := make([]string, 0, 10)
 	for i := 0; i < 10; i++ {
@@ -26,10 +20,8 @@ func candidatePaths() []string {
 	return paths
 }
 
-// dialPath is a placeholder until named-pipe support lands.
-func dialPath(context.Context, string) (net.Conn, error) {
-	if !windowsPipeSupport {
-		return nil, errors.New("discord: Windows named-pipe transport is not implemented yet")
-	}
-	return nil, errors.New("discord: unreachable")
+// dialPath connects to a Windows named pipe. Go's standard library cannot dial
+// named pipes, so this uses go-winio (pure Go, no CGo).
+func dialPath(ctx context.Context, path string) (net.Conn, error) {
+	return winio.DialPipeContext(ctx, path)
 }
