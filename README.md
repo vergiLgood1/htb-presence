@@ -106,6 +106,11 @@ the same approach as community tools such as
 [`GoToolSharing/htb-cli`](https://github.com/GoToolSharing/htb-cli). That API is
 unofficial and may change without notice; please respect HTB's Terms of Service.
 
+> **Disclaimer:** `htb-presence` is unofficial and is **not affiliated with or endorsed
+> by Hack The Box**. It relies on HTB's internal API, which may break without notice. You
+> are responsible for reviewing and complying with HTB's Terms of Service before using
+> it — use at your own risk. See [`docs/legal.md`](docs/legal.md).
+
 ## Contributing
 
 If you (or an AI coding agent) are working in this repo, please read
@@ -119,6 +124,7 @@ If you (or an AI coding agent) are working in this repo, please read
 | [`docs/requirements.md`](docs/requirements.md) | Functional & non-functional requirements |
 | [`docs/architecture.md`](docs/architecture.md) | System design, components, data flow |
 | [`docs/roadmap.md`](docs/roadmap.md) | Milestones and phased delivery plan |
+| [`docs/legal.md`](docs/legal.md) | Unofficial-use disclaimer and ToS review checklist |
 
 ## License
 

@@ -112,4 +112,4 @@ considering a change complete. If `golangci-lint` is configured later, run that 
   `docs/architecture.md` §2.2) in v1 or defer it — it adds OS-specific code
   (checking for a `tun`/OpenVPN interface) for a secondary signal.
 - Whether HTB's current Terms of Service need a second look before shipping a public
-  release, given the API is unofficial.
+  release, given the API is unofficial — track findings in `docs/legal.md`.

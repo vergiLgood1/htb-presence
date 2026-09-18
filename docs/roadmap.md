@@ -12,7 +12,8 @@ side project. Check items off as they land; feel free to reorder within a phase.
       hands-on: `/machine/active`, then `/machine/profile/{id}` for details).
 - [x] Register a Discord application to get a Rich Presence `client_id`.
 - [x] Pick a license (MIT — see `LICENSE`).
-- [ ] Note HTB's current ToS stance on this kind of automated polling.
+- [ ] Note HTB's current ToS stance on this kind of automated polling — checklist in
+      `docs/legal.md`.
 - [x] `go.mod` + minimal `main.go` that builds and runs (no functionality yet).
 
 ## Phase 1 — Core loop (MVP)
