@@ -7,25 +7,23 @@ side project. Check items off as they land; feel free to reorder within a phase.
 
 - [x] Decide final repo layout: Go module at repo root, no `src/` (decided 2026-09-18,
       `AGENTS.md` updated).
-- [ ] Generate a personal HTB App Token (Profile → Settings → App Tokens) and confirm
-      which internal endpoint returns "current active machine/challenge", cross-checking
-      `GoToolSharing/htb-cli` source and `Propolisa/htb-api-docs` (see
-      `docs/architecture.md` §8) — HTB has no public API, so this must be verified
-      hands-on rather than assumed from any doc.
-- [ ] Register a Discord application to get a Rich Presence `client_id`.
+- [x] Generate a personal HTB App Token (Profile → Settings → App Tokens) and confirm
+      which internal endpoint returns "current active machine/challenge" (confirmed
+      hands-on: `/machine/active`, then `/machine/profile/{id}` for details).
+- [x] Register a Discord application to get a Rich Presence `client_id`.
 - [x] Pick a license (MIT — see `LICENSE`).
 - [ ] Note HTB's current ToS stance on this kind of automated polling.
 - [x] `go.mod` + minimal `main.go` that builds and runs (no functionality yet).
 
 ## Phase 1 — Core loop (MVP)
 
-- [ ] `internal/config`: load + validate config file, sane defaults.
-- [ ] `internal/htb`: authenticate with the App Token and fetch current activity for the
+- [x] `internal/config`: load + validate config file, sane defaults.
+- [x] `internal/htb`: authenticate with the App Token and fetch current activity for the
       authenticated user against HTB's internal API (see `docs/architecture.md` §2.2).
-- [ ] `internal/discord`: connect to local Discord IPC, send a static `SET_ACTIVITY`
+- [x] `internal/discord`: connect to local Discord IPC, send a static `SET_ACTIVITY`
       payload.
-- [ ] `internal/presence`: poll loop wiring HTB → mapper → Discord, on a fixed interval.
-- [ ] Manual end-to-end test: run locally, confirm presence shows up on your own
+- [x] `internal/presence`: poll loop wiring HTB → mapper → Discord, on a fixed interval.
+- [x] Manual end-to-end test: run locally, confirm presence shows up on your own
       Discord profile.
 
 **Exit criteria:** running the binary with a valid config shows *something* (even a
@@ -33,13 +31,13 @@ static placeholder) as your Discord Rich Presence.
 
 ## Phase 2 — Real activity mapping
 
-- [ ] Map actual HTB session data (active machine/challenge name) into the presence
-      payload.
-- [ ] Idle/fallback state when no active session.
-- [ ] Change-detection so Discord is only updated when the activity actually changes
+- [x] Map actual HTB session data (active machine name; challenge sessions not
+      implemented) into the presence payload.
+- [x] Idle/fallback state when no active session.
+- [x] Change-detection so Discord is only updated when the activity actually changes
       (FR-7).
-- [ ] Elapsed-time timer on the presence.
-- [ ] Unit tests for the Presence Mapper (pure logic, no network/Discord needed).
+- [x] Elapsed-time timer on the presence.
+- [x] Unit tests for the Presence Mapper (pure logic, no network/Discord needed).
 
 **Exit criteria:** presence accurately reflects "what am I doing on HTB right now,"
 updating promptly as it changes.
@@ -48,8 +46,8 @@ updating promptly as it changes.
 
 - [ ] Retry/backoff for HTB API failures (network, auth, rate limit).
 - [ ] Retry/backoff + reconnect for Discord IPC drops.
-- [ ] Clean shutdown on SIGINT/SIGTERM (clears presence).
-- [ ] Structured logging with sensible levels; token masking.
+- [x] Clean shutdown on SIGINT/SIGTERM (clears presence).
+- [x] Structured logging with sensible levels; token masking.
 - [ ] Privacy toggles: hide machine name / hide rank / etc., driven by config.
 
 **Exit criteria:** the app can run unattended for days without manual intervention.
