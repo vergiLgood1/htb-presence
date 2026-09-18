@@ -44,8 +44,8 @@ updating promptly as it changes.
 
 ## Phase 3 — Resilience & polish
 
-- [ ] Retry/backoff for HTB API failures (network, auth, rate limit).
-- [ ] Retry/backoff + reconnect for Discord IPC drops.
+- [x] Retry/backoff for HTB API failures (network, auth, rate limit).
+- [x] Retry/backoff + reconnect for Discord IPC drops.
 - [x] Clean shutdown on SIGINT/SIGTERM (clears presence).
 - [x] Structured logging with sensible levels; token masking.
 - [ ] Privacy toggles: hide machine name / hide rank / etc., driven by config.
