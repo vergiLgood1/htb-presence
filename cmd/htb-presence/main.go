@@ -50,21 +50,58 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	slog.Info("config loaded",
-		"version", version,
-		"path", *configPath,
-		"poll_interval", time.Duration(cfg.HTB.PollInterval),
-		"htb_token", config.MaskToken(cfg.HTB.APIToken),
-	)
 
 	if *once {
+		logConfig(*configPath, cfg)
 		return printOnce(cfg)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	scheduler := &presence.Scheduler{
+	// Watch the config file and restart the scheduler when it changes. An
+	// invalid edit is ignored (and retried) until it becomes valid.
+	reload := make(chan *config.Config, 1)
+	go config.Watcher{Path: *configPath}.Watch(ctx, func() error {
+		next, err := config.Load(*configPath)
+		if err != nil {
+			return err
+		}
+		select {
+		case reload <- next:
+		default:
+		}
+		return nil
+	})
+
+	for {
+		logConfig(*configPath, cfg)
+
+		runCtx, cancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		go func() {
+			newScheduler(cfg).Run(runCtx)
+			close(done)
+		}()
+
+		select {
+		case <-ctx.Done():
+			cancel()
+			<-done
+			return nil
+		case next := <-reload:
+			slog.Info("config changed, restarting with the new settings")
+			cfg = next
+			cancel()
+			<-done
+		}
+	}
+}
+
+// newScheduler wires the HTB client, Discord IPC connection and poll loop from a
+// resolved config.
+func newScheduler(cfg *config.Config) *presence.Scheduler {
+	return &presence.Scheduler{
 		Fetcher: htb.NewClient(cfg.HTB.APIToken),
 		Connect: func(ctx context.Context) (presence.DiscordClient, error) {
 			return discord.Dial(ctx, cfg.Discord.ClientID)
@@ -77,8 +114,15 @@ func run() error {
 		},
 		Logger: slog.Default(),
 	}
-	scheduler.Run(ctx)
-	return nil
+}
+
+func logConfig(path string, cfg *config.Config) {
+	slog.Info("config loaded",
+		"version", version,
+		"path", path,
+		"poll_interval", time.Duration(cfg.HTB.PollInterval),
+		"htb_token", config.MaskToken(cfg.HTB.APIToken),
+	)
 }
 
 // printOnce fetches the current activity once and logs it, without touching
