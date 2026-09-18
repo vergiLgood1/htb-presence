@@ -54,11 +54,10 @@ updating promptly as it changes.
 
 ## Phase 4 — Distribution
 
-- [ ] Cross-compile builds for Linux/macOS/Windows.
-- [ ] GitHub Actions (or equivalent) release pipeline producing binaries.
-- [ ] `go install`-able module path.
-- [ ] README installation section filled in for real (currently marked "not yet
-      published").
+- [x] Cross-compile builds for Linux/macOS/Windows.
+- [x] GitHub Actions (or equivalent) release pipeline producing binaries.
+- [x] `go install`-able module path.
+- [x] README installation section filled in for real.
 
 **Exit criteria:** someone other than the author can install and run this without
 reading the source code.
