@@ -128,6 +128,47 @@ func TestMapRank(t *testing.T) {
 	}
 }
 
+func TestMapMachineAvatar(t *testing.T) {
+	withAvatar := func() *htb.Activity {
+		return &htb.Activity{Machine: &htb.Machine{
+			ID: 289, Name: "Vaccine", OS: "Linux", Difficulty: "Easy",
+			AvatarURL: "https://cdn.example/vaccine.png",
+		}}
+	}
+
+	t.Run("shown as the large image", func(t *testing.T) {
+		got := Map(withAvatar(), Options{ShowMachineName: true})
+		if got.LargeImage != "https://cdn.example/vaccine.png" {
+			t.Errorf("LargeImage = %q, want the avatar URL", got.LargeImage)
+		}
+		if got.LargeText != "Vaccine" {
+			t.Errorf("LargeText = %q, want Vaccine", got.LargeText)
+		}
+		if got.SmallImage != LargeImageAsset {
+			t.Errorf("SmallImage = %q, want %q", got.SmallImage, LargeImageAsset)
+		}
+	})
+
+	t.Run("hidden with the machine name", func(t *testing.T) {
+		got := Map(withAvatar(), Options{ShowMachineName: false})
+		if got.LargeImage != LargeImageAsset {
+			t.Errorf("LargeImage = %q, want the generic asset when the name is hidden", got.LargeImage)
+		}
+		if got.Details != "Hack The Box" {
+			t.Errorf("Details = %q, want generic", got.Details)
+		}
+	})
+
+	t.Run("falls back when there is no avatar", func(t *testing.T) {
+		activity := withAvatar()
+		activity.Machine.AvatarURL = ""
+		got := Map(activity, Options{ShowMachineName: true})
+		if got.LargeImage != LargeImageAsset {
+			t.Errorf("LargeImage = %q, want %q", got.LargeImage, LargeImageAsset)
+		}
+	})
+}
+
 func TestSession(t *testing.T) {
 	first := time.Unix(1000, 0)
 	second := time.Unix(2000, 0)

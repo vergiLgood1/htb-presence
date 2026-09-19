@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,7 @@ type Machine struct {
 	OS         string
 	Difficulty string
 	IP         string
+	AvatarURL  string
 	ExpiresAt  time.Time
 }
 
@@ -167,6 +169,7 @@ func (c *Client) CurrentActivity(ctx context.Context) (*Activity, error) {
 	machine.Name = profile.Name
 	machine.OS = profile.OS
 	machine.Difficulty = profile.Difficulty
+	machine.AvatarURL = resolveAssetURL(profile.Avatar)
 
 	return &Activity{Machine: machine}, nil
 }
@@ -214,6 +217,7 @@ type machineProfile struct {
 	Name       string `json:"name"`
 	OS         string `json:"os"`
 	Difficulty string `json:"difficultyText"`
+	Avatar     string `json:"avatar"`
 }
 
 // machineProfile fetches display details for the given machine id.
@@ -294,4 +298,24 @@ func parseHTBTime(value string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, fmt.Errorf("unrecognized time %q", value)
+}
+
+// resolveAssetURL turns an API-relative asset path into an absolute URL, leaving
+// absolute URLs untouched. The API has returned both forms over time.
+func resolveAssetURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		return raw
+	}
+	return "https://" + hostFromURL(DefaultBaseURL) + "/" + strings.TrimLeft(raw, "/")
+}
+
+// hostFromURL returns the host part of an absolute URL, or the input unchanged
+// when it cannot be parsed.
+func hostFromURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return raw
+	}
+	return u.Host
 }

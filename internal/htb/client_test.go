@@ -28,7 +28,7 @@ func TestCurrentActivityActiveMachine(t *testing.T) {
 		case "/machine/active":
 			io.WriteString(w, `{"info":{"id":42,"ip":"10.10.10.42","expires_at":"2026-09-18 20:00:00"}}`)
 		case "/machine/profile/42":
-			io.WriteString(w, `{"info":{"name":"Keeper","os":"Linux","difficultyText":"Easy"}}`)
+			io.WriteString(w, `{"info":{"name":"Keeper","os":"Linux","difficultyText":"Easy","avatar":"https://cdn.example/keeper.png"}}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -56,6 +56,9 @@ func TestCurrentActivityActiveMachine(t *testing.T) {
 	}
 	if m.IP != "10.10.10.42" {
 		t.Errorf("IP = %q, want 10.10.10.42", m.IP)
+	}
+	if m.AvatarURL != "https://cdn.example/keeper.png" {
+		t.Errorf("AvatarURL = %q, want the profile avatar", m.AvatarURL)
 	}
 	wantExpiry := time.Date(2026, 9, 18, 20, 0, 0, 0, time.UTC)
 	if !m.ExpiresAt.Equal(wantExpiry) {
@@ -231,6 +234,26 @@ func TestUserErrors(t *testing.T) {
 			client := newTestClient(t, tt.handler)
 			if _, err := client.User(context.Background()); !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err = %v, want errors.Is(_, %v)", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestResolveAssetURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty", "", ""},
+		{"absolute https", "https://cdn.example/a.png", "https://cdn.example/a.png"},
+		{"absolute http", "http://cdn.example/a.png", "http://cdn.example/a.png"},
+		{"relative", "/storage/avatars/a.png", "https://labs.hackthebox.com/storage/avatars/a.png"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolveAssetURL(tt.in); got != tt.want {
+				t.Errorf("resolveAssetURL(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}

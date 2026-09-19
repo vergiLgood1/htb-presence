@@ -52,6 +52,15 @@ func Map(activity *htb.Activity, opts Options) *discord.Activity {
 			out.Details = orDefault(m.Name, "A machine")
 		}
 		stateParts = append(stateParts, m.OS, m.Difficulty)
+
+		// The machine avatar is only shown when the name is, since the image
+		// would otherwise reveal a machine the user chose to hide.
+		if opts.ShowMachineName && m.AvatarURL != "" {
+			out.LargeImage = m.AvatarURL
+			out.LargeText = orDefault(m.Name, "A machine")
+			out.SmallImage = LargeImageAsset
+			out.SmallText = "Hack The Box"
+		}
 	}
 
 	if opts.ShowRank && activity != nil && activity.User != nil {
