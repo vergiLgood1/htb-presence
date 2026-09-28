@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
@@ -72,6 +73,11 @@ func WithSocketPath(path string) Option {
 
 // Dial connects to a running Discord client and completes the handshake for the
 // given application client ID.
+//
+// Candidate sockets are probed in order. A client that answers but rejects the
+// handshake is reported as a handshake failure: that means Discord is running and
+// the client ID (or the login state) is the problem, which a dead socket path
+// would only obscure.
 func Dial(ctx context.Context, clientID string, opts ...Option) (*Client, error) {
 	var cfg dialConfig
 	for _, opt := range opts {
@@ -83,27 +89,37 @@ func Dial(ctx context.Context, clientID string, opts ...Option) (*Client, error)
 		paths = []string{cfg.socketPath}
 	}
 
-	var lastErr error
+	var dialErr error
+	var handshakeErr error
 	for _, path := range paths {
 		conn, err := dialPath(ctx, path)
 		if err != nil {
-			lastErr = err
+			dialErr = err
 			continue
 		}
 
 		client := &Client{clientID: clientID, conn: conn}
 		if err := client.handshake(ctx); err != nil {
 			conn.Close()
-			lastErr = fmt.Errorf("handshake over %s: %w", path, err)
+			// Keep the first handshake failure: candidates are ordered with
+			// the most likely socket first, so a later stale one would only
+			// make the message less useful.
+			if handshakeErr == nil {
+				handshakeErr = fmt.Errorf("over %s: %w", path, err)
+			}
 			continue
 		}
 		return client, nil
 	}
 
-	if lastErr == nil {
-		lastErr = errors.New("no Discord IPC socket found")
+	switch {
+	case handshakeErr != nil:
+		return nil, fmt.Errorf("discord: handshake failed, check discord.client_id: %w", handshakeErr)
+	case dialErr != nil:
+		return nil, fmt.Errorf("%w: %w", ErrNotRunning, dialErr)
+	default:
+		return nil, fmt.Errorf("%w: no Discord IPC socket found", ErrNotRunning)
 	}
-	return nil, fmt.Errorf("%w: %w", ErrNotRunning, lastErr)
 }
 
 // handshake performs the initial protocol handshake.
@@ -196,10 +212,17 @@ func (c *Client) exchange(ctx context.Context, payload any) ([]byte, error) {
 
 // readReply reads frames until a data frame arrives, answering pings and pongs
 // along the way. The caller must hold ioMu.
+//
+// A peer that hangs up mid-exchange, with or without a close frame, is reported
+// as ErrClosed so callers see one "the connection went away" signal instead of a
+// bare EOF.
 func (c *Client) readReply() ([]byte, error) {
 	for {
 		op, data, err := readFrame(c.conn)
 		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				return nil, fmt.Errorf("%w: %v", ErrClosed, err)
+			}
 			return nil, err
 		}
 

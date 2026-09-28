@@ -36,6 +36,12 @@ All notable changes to this project are documented here. The format is based on
   rejected as an unexpected response, because the `connection` field was decoded into
   a struct. The API's authoritative "not connected" answer is now honored instead of
   falling back to the local route check.
+- A Discord handshake that is refused is no longer reported as "client is not running".
+  Discord accepts the socket and hangs up when it does not know the `client_id`, and
+  that message used to be overwritten by the last dead candidate path (`/tmp/discord-ipc-9`
+  and friends), sending anyone debugging it to the wrong place. The error now names the
+  socket that answered and points at `discord.client_id`, and a silent hang-up reports
+  `discord: connection closed` instead of a bare `EOF`.
 
 ### Documentation
 

@@ -273,4 +273,36 @@ func TestDialHandshakeRejected(t *testing.T) {
 	if !errors.Is(err, ErrProtocol) {
 		t.Errorf("err = %v, want ErrProtocol", err)
 	}
+	if errors.Is(err, ErrNotRunning) {
+		t.Errorf("err = %v must not claim the client is not running; it answered", err)
+	}
+	if !strings.Contains(err.Error(), "client_id") {
+		t.Errorf("err = %v should point at the client id", err)
+	}
+}
+
+// TestDialHandshakeClosed covers what a real Discord client does when it does
+// not know the application: it accepts the socket, reads the handshake and hangs
+// up without replying. The error has to name that socket rather than claim
+// Discord is missing.
+func TestDialHandshakeClosed(t *testing.T) {
+	path := fakeDiscord(t, func(conn net.Conn) {
+		// Read the handshake, then return, which closes the connection
+		// without a reply.
+		readFrame(conn)
+	})
+
+	_, err := Dial(context.Background(), "123", WithSocketPath(path))
+	if err == nil {
+		t.Fatal("expected a handshake error, got nil")
+	}
+	if errors.Is(err, ErrNotRunning) {
+		t.Errorf("err = %v must not claim the client is not running; it answered", err)
+	}
+	if !errors.Is(err, ErrClosed) {
+		t.Errorf("err = %v, want ErrClosed from the dropped handshake", err)
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("err = %v should name the socket that answered", err)
+	}
 }
