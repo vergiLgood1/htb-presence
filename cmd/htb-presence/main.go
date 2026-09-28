@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -38,6 +39,9 @@ func run() error {
 	configPath := flag.String("config", defaultPath, "path to the config file")
 	once := flag.Bool("once", false, "fetch the current activity once, print it, and exit (debug)")
 	showVersion := flag.Bool("version", false, "print the version and exit")
+	initConfig := flag.Bool("init", false, "write a starter config file and exit")
+	force := flag.Bool("force", false, "overwrite an existing config when used with -init")
+	stats := flag.Bool("stats", false, "summarize the local session history and exit")
 	flag.Parse()
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
@@ -46,10 +50,26 @@ func run() error {
 		fmt.Printf("htb-presence %s\n", version)
 		return nil
 	}
+	if *force && !*initConfig {
+		return errors.New("-force is only valid with -init")
+	}
+	if *initConfig {
+		if err := config.WriteTemplate(*configPath, *force); err != nil {
+			return err
+		}
+		fmt.Print(config.InitMessage(*configPath))
+		return nil
+	}
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		return err
+	}
+	if msg := config.PermWarning(*configPath); msg != "" {
+		slog.Warn(msg)
+	}
+	if *stats {
+		return printStats(cfg)
 	}
 
 	if *once {
@@ -126,7 +146,13 @@ func newScheduler(cfg *config.Config, recorder *history.Recorder) *presence.Sche
 		Options: presence.Options{
 			ShowMachineName: cfg.Discord.ShowMachineName,
 			ShowRank:        cfg.Discord.ShowRank,
+			ShowPoints:      cfg.Discord.ShowPoints,
 			ShowTimer:       cfg.Discord.ShowTimer,
+			ShowFlags:       cfg.Discord.ShowFlags,
+			ShowButtons:     cfg.Discord.ShowButtons,
+			ClearWhenIdle:   cfg.Discord.ClearWhenIdle,
+			IdleText:        cfg.Discord.IdleText,
+			VPNFallback:     cfg.HTB.VPNFallback,
 		},
 		Logger: slog.Default(),
 	}
@@ -151,23 +177,56 @@ func printOnce(cfg *config.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	activity, err := htb.NewClient(cfg.HTB.APIToken).CurrentActivity(ctx)
+	client := htb.NewClient(cfg.HTB.APIToken)
+	activity, err := client.CurrentActivity(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching HTB activity: %w", err)
 	}
-	if activity.Machine == nil {
-		slog.Info("no active machine")
-		return nil
+	switch {
+	case activity.Machine != nil:
+		m := activity.Machine
+		slog.Info("active machine",
+			"id", m.ID,
+			"name", m.Name,
+			"os", m.OS,
+			"difficulty", m.Difficulty,
+			"ip", m.IP,
+			"expires_at", m.ExpiresAt,
+			"user_owned", m.UserOwned,
+			"root_owned", m.RootOwned,
+		)
+	case activity.Challenge != nil:
+		ch := activity.Challenge
+		slog.Info("active challenge",
+			"id", ch.ID,
+			"name", ch.Name,
+			"category", ch.Category,
+			"difficulty", ch.Difficulty,
+			"expires_at", ch.ExpiresAt,
+		)
+	default:
+		slog.Info("no active machine or challenge")
+		if cfg.HTB.VPNFallback {
+			vpn, err := client.VPNConnected(ctx)
+			if err != nil {
+				slog.Warn("HTB VPN status unavailable", "error", err)
+				return nil
+			}
+			slog.Info("vpn", "connected", vpn.Connected, "product", vpn.Product)
+		}
 	}
+	return nil
+}
 
-	m := activity.Machine
-	slog.Info("active machine",
-		"id", m.ID,
-		"name", m.Name,
-		"os", m.OS,
-		"difficulty", m.Difficulty,
-		"ip", m.IP,
-		"expires_at", m.ExpiresAt,
-	)
+// printStats prints the local session history summary.
+func printStats(cfg *config.Config) error {
+	if cfg.History.File == "" {
+		return errors.New("history.file is empty; set it to record sessions before using -stats")
+	}
+	summary, err := history.SummarizeFile(cfg.History.File)
+	if err != nil {
+		return err
+	}
+	fmt.Print(history.Format(summary))
 	return nil
 }
