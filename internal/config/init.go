@@ -21,7 +21,7 @@ discord:
   show_machine_name: true           # also hides challenge names, avatars, and target links
   show_rank: true
   show_points: true
-  show_timer: true                  # elapsed time, plus a countdown to expires_at
+  show_timer: true                  # elapsed playing time; expiry moves to avatar hover
   show_flags: false                 # user/root owns; off because it is spoilery
   show_buttons: true                # "Open machine" / "Open challenge" and "HTB profile"
   clear_when_idle: false            # clear presence instead of showing idle text

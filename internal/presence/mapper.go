@@ -32,8 +32,8 @@ type Options struct {
 	// ShowPoints includes the user's points in the presence state.
 	ShowPoints bool
 
-	// ShowTimer includes an elapsed-time timer, and a countdown when the
-	// spawned target has an expiry.
+	// ShowTimer includes an elapsed-time timer. The instance expiry is attached
+	// to the avatar hover text instead of rendering as a countdown.
 	ShowTimer bool
 
 	// ShowFlags includes user/root own markers. Off by default.
@@ -74,11 +74,6 @@ func (o Options) wantsUser() bool {
 // ClearWhenIdle is set and there is no spawned target and no VPN fallback
 // to show.
 func Map(activity *htb.Activity, opts Options) *discord.Activity {
-	now := time.Now
-	if opts.Now != nil {
-		now = opts.Now
-	}
-
 	var machine *htb.Machine
 	var challenge *htb.Challenge
 	vpn := false
@@ -99,14 +94,13 @@ func Map(activity *htb.Activity, opts Options) *discord.Activity {
 	}
 
 	var stateParts []string
-	var expires time.Time
 	spawned := machine != nil || challenge != nil
 
 	switch {
 	case machine != nil:
-		stateParts, expires = mapMachine(out, machine, opts)
+		stateParts = mapMachine(out, machine, opts)
 	case challenge != nil:
-		stateParts, expires = mapChallenge(out, challenge, opts)
+		stateParts = mapChallenge(out, challenge, opts)
 	case vpn:
 		label := "On the VPN"
 		if product := strings.TrimSpace(activity.VPN.Product); product != "" {
@@ -123,17 +117,18 @@ func Map(activity *htb.Activity, opts Options) *discord.Activity {
 
 	if opts.ShowRank || opts.ShowPoints {
 		if activity != nil && activity.User != nil {
-			stateParts = append(stateParts, rankLabel(activity.User, opts.ShowRank, opts.ShowPoints))
+			if r := rankLabel(activity.User, opts.ShowRank, opts.ShowPoints); r != "" {
+				stateParts = append(stateParts, r)
+			}
 		}
 	}
-	out.State = joinNonEmpty(" · ", stateParts...)
 
 	if opts.ShowTimer && spawned && !opts.SessionStart.IsZero() {
 		out.StartTime = opts.SessionStart
 	}
-	if opts.ShowTimer && spawned && !expires.IsZero() && expires.After(now()) {
-		out.EndTime = expires
-	}
+
+	out.State = joinNonEmpty(" · ", stateParts...)
+
 	if opts.ShowButtons {
 		out.Buttons = append(out.Buttons, buttons(activity, opts)...)
 	}
@@ -141,34 +136,64 @@ func Map(activity *htb.Activity, opts Options) *discord.Activity {
 }
 
 // mapMachine fills the machine-specific presence fields and returns state
-// parts plus the instance expiry.
-func mapMachine(out *discord.Activity, m *htb.Machine, opts Options) ([]string, time.Time) {
+// parts.
+func mapMachine(out *discord.Activity, m *htb.Machine, opts Options) []string {
+	meta := joinNonEmpty(" · ", m.OS, m.Difficulty)
 	if opts.ShowMachineName {
-		out.Details = orDefault(m.Name, "A machine")
+		if meta != "" {
+			out.Details = fmt.Sprintf("%s (%s)", orDefault(m.Name, "A machine"), meta)
+		} else {
+			out.Details = orDefault(m.Name, "A machine")
+		}
 		if m.AvatarURL != "" {
 			out.LargeImage = m.AvatarURL
-			out.LargeText = orDefault(m.Name, "A machine")
+			hover := orDefault(m.Name, "A machine")
+			if !m.ExpiresAt.IsZero() {
+				hover += " · ends " + m.ExpiresAt.In(time.Local).Format("2 Jan 15:04")
+			}
+			out.LargeText = hover
+		}
+	} else if meta != "" {
+		out.Details = meta
+	}
+
+	var parts []string
+	if opts.ShowFlags {
+		if f := flagLabel(m); f != "" {
+			parts = append(parts, "Flags: "+f)
 		}
 	}
-	parts := []string{m.OS, m.Difficulty}
-	if opts.ShowFlags {
-		parts = append(parts, flagLabel(m))
-	}
 	applySmallImage(out, osAsset(m.OS), m.OS)
-	return parts, m.ExpiresAt
+	return parts
 }
 
 // mapChallenge fills the challenge-specific presence fields.
-func mapChallenge(out *discord.Activity, ch *htb.Challenge, opts Options) ([]string, time.Time) {
+func mapChallenge(out *discord.Activity, ch *htb.Challenge, opts Options) []string {
+	meta := joinNonEmpty(" · ", ch.Category, ch.Difficulty)
 	if opts.ShowMachineName {
-		out.Details = orDefault(ch.Name, "A challenge")
+		name := orDefault(ch.Name, "A challenge")
+		if meta != "" {
+			out.Details = fmt.Sprintf("%s (%s)", name, meta)
+		} else {
+			out.Details = name
+		}
 		if ch.AvatarURL != "" {
 			out.LargeImage = ch.AvatarURL
-			out.LargeText = orDefault(ch.Name, "A challenge")
+			hover := name
+			if !ch.ExpiresAt.IsZero() {
+				hover += " · ends " + ch.ExpiresAt.In(time.Local).Format("2 Jan 15:04")
+			}
+			out.LargeText = hover
+		}
+	} else {
+		out.Details = "Challenge"
+		if meta != "" {
+			out.Details = "Challenge (" + meta + ")"
 		}
 	}
+
 	applySmallImage(out, "", "")
-	return []string{"Challenge", ch.Category, ch.Difficulty}, ch.ExpiresAt
+	return nil
 }
 
 // applySmallImage sets the small asset. An OS badge wins; otherwise the HTB

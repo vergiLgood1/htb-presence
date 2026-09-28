@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Target OS and difficulty moved from the state line to the details line, next to
+  the target name: `Layover (Linux · Medium)`. The state line now only carries the
+  user standing (rank/points/flags), so it stays short instead of crowding one
+  line with system, standing, and expiry data.
+- The presence timer is now always the elapsed playing time. The instance expiry
+  no longer renders as a countdown; it rides along in the avatar hover text as
+  `Layover · ends 3 Oct 17:50`.
+
 ## [0.2.0] - 2026-09-28
 
 ### Added

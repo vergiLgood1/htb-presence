@@ -119,8 +119,8 @@ func TestTickPublishesThenSkipsUnchanged(t *testing.T) {
 	if len(updates) != 1 {
 		t.Fatalf("updates = %d, want 1 (second tick is unchanged)", len(updates))
 	}
-	if updates[0].Details != "Vaccine" {
-		t.Errorf("Details = %q, want Vaccine", updates[0].Details)
+	if updates[0].Details != "Vaccine (Linux · Easy)" {
+		t.Errorf("Details = %q, want Vaccine (Linux · Easy)", updates[0].Details)
 	}
 }
 
@@ -137,8 +137,8 @@ func TestTickPublishesOnChange(t *testing.T) {
 	if len(updates) != 2 {
 		t.Fatalf("updates = %d, want 2", len(updates))
 	}
-	if updates[1].Details != "Keeper" {
-		t.Errorf("second Details = %q, want Keeper", updates[1].Details)
+	if updates[1].Details != "Keeper (Linux · Easy)" {
+		t.Errorf("second Details = %q, want Keeper (Linux · Easy)", updates[1].Details)
 	}
 }
 
@@ -354,7 +354,7 @@ func TestTickIncludesRank(t *testing.T) {
 	if len(updates) != 1 {
 		t.Fatalf("updates = %d, want 1", len(updates))
 	}
-	if updates[0].State != "Linux · Easy · Noob · 120 pts" {
+	if updates[0].State != "Noob · 120 pts" {
 		t.Errorf("State = %q, want rank included", updates[0].State)
 	}
 }
@@ -384,10 +384,10 @@ func TestRankFailureStillPublishes(t *testing.T) {
 	if len(updates) != 1 {
 		t.Fatalf("updates = %d, want 1", len(updates))
 	}
-	if updates[0].Details != "Vaccine" {
-		t.Errorf("Details = %q, want Vaccine", updates[0].Details)
+	if updates[0].Details != "Vaccine (Linux · Easy)" {
+		t.Errorf("Details = %q, want Vaccine (Linux · Easy)", updates[0].Details)
 	}
-	if updates[0].State != "Linux · Easy" {
+	if updates[0].State != "" {
 		t.Errorf("State = %q, want no rank after a rank fetch failure", updates[0].State)
 	}
 }

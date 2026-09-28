@@ -9,8 +9,9 @@ you having to update anything by hand.
 ## Features
 
 - 🟢 Live Discord Rich Presence for the active machine, season machine, or spawned challenge
-- 🧩 Machine name, OS and difficulty, plus your HTB rank and points
-- ⏱️ Elapsed-time timer and a countdown to the instance expiry
+- 🧩 Machine name, OS and difficulty on the details line, rank/points/flags on the
+  state line, plus your HTB rank and points
+- ⏱️ Elapsed-time playing timer; instance expiry moves to the avatar hover text
 - 🔗 Buttons that open the machine or challenge and your HTB profile
 - 🔒 Privacy toggles: hide the target name, rank, points, timer, or flag progress
 - 🌙 Clear presence when nothing is spawned, or show a custom idle line
@@ -86,7 +87,7 @@ discord:
   show_machine_name: true   # also hides challenge names, avatars, and target links
   show_rank: true
   show_points: true
-  show_timer: true          # elapsed time, plus a countdown to expires_at
+  show_timer: true          # elapsed playing time; expiry moves to avatar hover
   show_flags: false         # "user" / "root" owns; off because it is spoilery
   show_buttons: true
   clear_when_idle: false    # clear presence instead of the idle line

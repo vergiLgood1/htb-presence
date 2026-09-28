@@ -16,17 +16,20 @@ func TestMapActiveMachine(t *testing.T) {
 		Difficulty: "Very Easy",
 	}}, Options{ShowMachineName: true, ShowTimer: true, SessionStart: start})
 
-	if got.Details != "Vaccine" {
-		t.Errorf("Details = %q, want Vaccine", got.Details)
+	if got.Details != "Vaccine (Linux · Very Easy)" {
+		t.Errorf("Details = %q, want Vaccine (Linux · Very Easy)", got.Details)
 	}
-	if got.State != "Linux · Very Easy" {
-		t.Errorf("State = %q, want Linux · Very Easy", got.State)
+	if got.State != "" {
+		t.Errorf("State = %q, want empty when no flags or rank", got.State)
 	}
 	if got.LargeImage != LargeImageAsset {
 		t.Errorf("LargeImage = %q, want %q", got.LargeImage, LargeImageAsset)
 	}
 	if !got.StartTime.Equal(start) {
 		t.Errorf("StartTime = %s, want %s", got.StartTime, start)
+	}
+	if !got.EndTime.IsZero() {
+		t.Errorf("EndTime = %s, want zero (elapsed timer only)", got.EndTime)
 	}
 }
 
@@ -35,11 +38,11 @@ func TestMapHidesMachineName(t *testing.T) {
 		ID: 289, Name: "Vaccine", OS: "Linux", Difficulty: "Very Easy",
 	}}, Options{ShowMachineName: false})
 
-	if got.Details != "Hack The Box" {
-		t.Errorf("Details = %q, want generic Hack The Box", got.Details)
+	if got.Details != "Linux · Very Easy" {
+		t.Errorf("Details = %q, want Linux · Very Easy", got.Details)
 	}
-	if got.State != "Linux · Very Easy" {
-		t.Errorf("State = %q, want OS/difficulty kept", got.State)
+	if got.State != "" {
+		t.Errorf("State = %q, want empty", got.State)
 	}
 }
 
@@ -95,37 +98,37 @@ func TestMapRank(t *testing.T) {
 			name: "shown with points",
 			opts: Options{ShowMachineName: true, ShowRank: true, ShowPoints: true},
 			user: &htb.User{Rank: "Noob", Points: 120},
-			want: "Linux · Easy · Noob · 120 pts",
+			want: "Noob · 120 pts",
 		},
 		{
 			name: "rank without points",
 			opts: Options{ShowMachineName: true, ShowRank: true, ShowPoints: false},
 			user: &htb.User{Rank: "Noob", Points: 120},
-			want: "Linux · Easy · Noob",
+			want: "Noob",
 		},
 		{
 			name: "points without rank",
 			opts: Options{ShowMachineName: true, ShowPoints: true},
 			user: &htb.User{Rank: "Noob", Points: 120},
-			want: "Linux · Easy · 120 pts",
+			want: "120 pts",
 		},
 		{
 			name: "shown without points",
 			opts: Options{ShowMachineName: true, ShowRank: true},
 			user: &htb.User{Rank: "Noob"},
-			want: "Linux · Easy · Noob",
+			want: "Noob",
 		},
 		{
 			name: "hidden",
 			opts: Options{ShowMachineName: true, ShowRank: false},
 			user: &htb.User{Rank: "Noob", Points: 120},
-			want: "Linux · Easy",
+			want: "",
 		},
 		{
 			name: "no user loaded",
 			opts: Options{ShowMachineName: true, ShowRank: true},
 			user: nil,
-			want: "Linux · Easy",
+			want: "",
 		},
 	}
 
@@ -169,8 +172,8 @@ func TestMapMachineAvatar(t *testing.T) {
 		if got.LargeImage != LargeImageAsset {
 			t.Errorf("LargeImage = %q, want the generic asset when the name is hidden", got.LargeImage)
 		}
-		if got.Details != "Hack The Box" {
-			t.Errorf("Details = %q, want generic", got.Details)
+		if got.Details != "Linux · Easy" {
+			t.Errorf("Details = %q, want Linux · Easy", got.Details)
 		}
 	})
 
@@ -193,11 +196,11 @@ func TestMapChallengeButtonsFlagsAndIdle(t *testing.T) {
 			Challenge: &htb.Challenge{ID: 7, Name: "Phonebook", Category: "Web", Difficulty: "Easy", ExpiresAt: expiry},
 			User:      &htb.User{ID: 5, Rank: "Noob"},
 		}, Options{ShowMachineName: true, ShowTimer: true, ShowButtons: true, ShowRank: true, SessionStart: time.Unix(500, 0), Now: now})
-		if got.Details != "Phonebook" || got.State != "Challenge · Web · Easy · Noob" {
-			t.Fatalf("details/state = %q / %q", got.Details, got.State)
+		if got.Details != "Phonebook (Web · Easy)" || got.State != "Noob" {
+			t.Fatalf("details/state = %q / %q, want Phonebook (Web · Easy) / Noob", got.Details, got.State)
 		}
-		if !got.EndTime.Equal(expiry) {
-			t.Errorf("EndTime = %s, want %s", got.EndTime, expiry)
+		if !got.EndTime.IsZero() {
+			t.Errorf("EndTime = %s, want zero (elapsed timer only)", got.EndTime)
 		}
 		if len(got.Buttons) != 2 || got.Buttons[0].Label != "Open challenge" || got.Buttons[1].URL != "https://app.hackthebox.com/users/5" {
 			t.Errorf("buttons = %+v", got.Buttons)
@@ -206,8 +209,11 @@ func TestMapChallengeButtonsFlagsAndIdle(t *testing.T) {
 
 	t.Run("flags", func(t *testing.T) {
 		got := Map(&htb.Activity{Machine: &htb.Machine{Name: "Vaccine", OS: "Linux", UserOwned: true}}, Options{ShowMachineName: true, ShowFlags: true})
-		if got.State != "Linux · user" {
-			t.Errorf("State = %q, want Linux · user", got.State)
+		if got.Details != "Vaccine (Linux)" {
+			t.Errorf("Details = %q, want Vaccine (Linux)", got.Details)
+		}
+		if got.State != "Flags: user" {
+			t.Errorf("State = %q, want Flags: user", got.State)
 		}
 	})
 
@@ -228,6 +234,49 @@ func TestMapChallengeButtonsFlagsAndIdle(t *testing.T) {
 		got := Map(&htb.Activity{VPN: htb.VPN{Connected: true, Product: "fortresses"}}, Options{ClearWhenIdle: true})
 		if got == nil || got.State != "On the VPN · fortresses" {
 			t.Fatalf("vpn presence = %+v", got)
+		}
+	})
+}
+
+// TestMapExpiryTooltip covers the absolute expiry that is attached to the
+// large image hover text instead of rendering as an IPC countdown.
+func TestMapExpiryTooltip(t *testing.T) {
+	future := time.Date(2026, 10, 3, 9, 50, 0, 0, time.UTC)
+	opts := Options{ShowMachineName: true, ShowTimer: true}
+
+	t.Run("avatar hover carries expiry", func(t *testing.T) {
+		m := &htb.Machine{
+			ID:         1,
+			Name:       "Layover",
+			OS:         "Linux",
+			Difficulty: "Medium",
+			AvatarURL:  "https://cdn.example/layover.png",
+			ExpiresAt:  future,
+		}
+		got := Map(&htb.Activity{Machine: m}, opts)
+		if got.Details != "Layover (Linux · Medium)" {
+			t.Errorf("Details = %q, want Layover (Linux · Medium)", got.Details)
+		}
+		wantHover := "Layover · ends " + future.In(time.Local).Format("2 Jan 15:04")
+		if got.LargeText != wantHover {
+			t.Errorf("LargeText = %q, want %q", got.LargeText, wantHover)
+		}
+		if !got.EndTime.IsZero() {
+			t.Errorf("EndTime = %s, want zero (countdown replaced by elapsed timer)", got.EndTime)
+		}
+	})
+
+	t.Run("without expiry hover is target name", func(t *testing.T) {
+		m := &htb.Machine{
+			ID:         1,
+			Name:       "Layover",
+			OS:         "Linux",
+			Difficulty: "Medium",
+			AvatarURL:  "https://cdn.example/layover.png",
+		}
+		got := Map(&htb.Activity{Machine: m}, opts)
+		if got.LargeText != "Layover" {
+			t.Errorf("LargeText = %q, want Layover", got.LargeText)
 		}
 	})
 }
