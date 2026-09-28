@@ -26,6 +26,22 @@ All notable changes to this project are documented here. The format is based on
 - `show_machine_name: false` also hides challenge names, target avatars, and the
   target button. Rank and points are separate toggles; points stay on when
   `show_rank` is on, matching previous presence text.
+- A machine profile is cached for 10 minutes (`DefaultProfileTTL`), so a poll spends
+  one request instead of two for the length of a session. User/root flag markers can
+  lag by up to that window.
+
+### Fixed
+
+- A connection-status body of `{"status":"0","connection":"not connected"}` was
+  rejected as an unexpected response, because the `connection` field was decoded into
+  a struct. The API's authoritative "not connected" answer is now honored instead of
+  falling back to the local route check.
+
+### Documentation
+
+- The vendored community API collection in `docs/api/` records that
+  `https://www.hackthebox.com/api/v4` no longer serves the API (every v4 path answers
+  404) and that it has no endpoint for a spawned challenge instance.
 
 ## [0.1.0] - 2026-09-18
 

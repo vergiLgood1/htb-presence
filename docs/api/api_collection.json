@@ -1,0 +1,2779 @@
+{
+  "info": {
+    "_postman_id": "7cc865dd-80dc-42ea-a8fd-d18f15b113ac",
+    "name": "HTB Api Docs (v4)",
+    "description": "<img src=\"https://raw.githubusercontent.com/Propolisa/htb-api-docs/master/assets/images/banner.png\" alt=\"\" width=\"640px\">\r\n\r\n## 👋 Welcome to the community documentation for the Hack The Box v4 API!\r\nIn celebration of the new API and site release, I am organizing available information about API endpoints and data types via a public Postman collection (see below). I hope it will be helpful to the developers who want to create their own HTB-integrated tools (e.g. Discord bots, progress tracker, shortest-path-to-rank algorithm). Let me know what you make!\r\n\r\n## Authentication:\r\n\r\nUnlike the v3 api, v4 uses `Authorization: Bearer [API_TOKEN]` header mechanism for user authentication. You can see an example login flow in my NodeJS-based HTB Discord bot code here: [Propolisa/Seven/modules/api.js](https://github.com/Propolisa/Seven/blob/94b12be2d30bd5ef1a278f25d95630f89810770b/modules/api.js#L31)\r\nNote how the token is saved and [used in htbApiGet() method](https://github.com/Propolisa/Seven/blob/94b12be2d30bd5ef1a278f25d95630f89810770b/modules/api.js#L64). \r\nFeel free to dig around and copy from the Seven code to see other usage examples.\r\n\r\nHappy Hacking! If you would like to be added as a contributor to the Postman project, please feel free to get in touch with me on [Twitter](https://twitter.com/Propolis709). ",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "58571442",
+    "_collection_link": "https://go.postman.co/collection/58571442-7cc865dd-80dc-42ea-a8fd-d18f15b113ac?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "👥 Teams",
+      "item": [
+        {
+          "name": "Get Team Profile",
+          "protocolProfileBehavior": {
+            "disabledSystemHeaders": {
+              "user-agent": true,
+              "accept": true
+            }
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, text/plain, */*",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "User-Agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Pragma",
+                "value": "no-cache",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Origin",
+                "value": "https://app.hackthebox.eu",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{API}}/team/info/{{TEAM_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "info",
+                "{{TEAM_ID}}"
+              ]
+            },
+            "description": "Retrieve the information profile for a team including captain, motto and other attributes."
+          }
+        },
+        {
+          "name": "Get Recent Team Activity",
+          "protocolProfileBehavior": {
+            "disabledSystemHeaders": {
+              "user-agent": true,
+              "accept": true
+            }
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, text/plain, */*",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "User-Agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Pragma",
+                "value": "no-cache",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Origin",
+                "value": "https://app.hackthebox.eu",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{API}}/team/activity/{{TEAM_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "activity",
+                "{{TEAM_ID}}"
+              ]
+            },
+            "description": "Retrieve a handful of recent team owns. (Does not indicate which member achieved each item)"
+          }
+        },
+        {
+          "name": "Get Team Statistics (Owns)",
+          "protocolProfileBehavior": {
+            "disabledSystemHeaders": {
+              "user-agent": true
+            }
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/team/stats/owns/{{TEAM_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "stats",
+                "owns",
+                "{{TEAM_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Team Graph for Duration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/team/graph/{{TEAM_ID}}?duration=1W",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "graph",
+                "{{TEAM_ID}}"
+              ],
+              "query": [
+                {
+                  "key": "duration",
+                  "value": "1W",
+                  "description": "One of [\"1Y\", \"6M\", \"3M\", \"1M\", \"1W\"]"
+                }
+              ]
+            },
+            "description": "Get graph data for a team for a given duration (e.g. 1Y, 6M, 3M, 1M, 1W)"
+          }
+        },
+        {
+          "name": "Get Team Ownage by Attack Path",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/team/chart/machines/attack/{{TEAM_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "chart",
+                "machines",
+                "attack",
+                "{{TEAM_ID}}"
+              ]
+            },
+            "description": "Gets team machine ownage per attack path (e.g. \"Web\", \"Account Misconfiguration\"), expressed for each path (and for the total set of machines) as number of machines owned (either user or root, apparently) versus the total number available."
+          }
+        },
+        {
+          "name": "List Team Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/team/members/{{TEAM_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "members",
+                "{{TEAM_ID}}"
+              ]
+            },
+            "description": "List the members of a team (both active and pending / invited), given its ID."
+          }
+        },
+        {
+          "name": "List Hack The Box Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/team/list",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "list"
+              ]
+            },
+            "description": "List the members of a team (both active and pending / invited), given its ID."
+          }
+        },
+        {
+          "name": "List Team Invitations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/team/invitations/{{testTeamId}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "team",
+                "invitations",
+                "{{testTeamId}}"
+              ]
+            },
+            "description": "List the pending team members who have requested to join a team, or who were requested by the team captain, but have not yet accepted / been approved."
+          }
+        },
+        {
+          "name": "Global Rank History for Bearer's Team",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/team/best?period=1Y",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "team",
+                "best"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "1Y",
+                  "description": "One of [\"1Y\", \"6M\", \"3M\", \"1M\", \"1W\"]"
+                }
+              ]
+            },
+            "description": "Lists the best global rank achieved by the API user's team, in set intervals for a given period (e.g. 1Y, 6M, 3M, 1M, 1W)."
+          }
+        },
+        {
+          "name": "Global Points History for Bearer's Team",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/team/overview?period=1Y",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "team",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "1Y",
+                  "description": "One of [\"1Y\", \"6M\", \"3M\", \"1M\", \"1W\"]"
+                }
+              ]
+            },
+            "description": "Lists the best global rank achieved by the API user's team, in set intervals for a given period (e.g. 1Y, 6M, 3M, 1M, 1W)."
+          }
+        },
+        {
+          "name": "Current Rank Overview for Bearer's Team",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/team/ranking_bracket",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "team",
+                "ranking_bracket"
+              ]
+            },
+            "description": "Lists the current team ranking bracket (e.g. \"Top 20\"), next ranking bracket, total points, points to achieve next bracket, and global rank."
+          }
+        },
+        {
+          "name": "List Top-Ranked Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/teams",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "teams"
+              ]
+            },
+            "description": "Lists the highest-ranked teams on HTB."
+          }
+        }
+      ],
+      "description": "Team-related requests.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎓 Universities",
+      "item": [
+        {
+          "name": "List / Search in All Universities",
+          "protocolProfileBehavior": {
+            "disabledSystemHeaders": {
+              "user-agent": true,
+              "accept": true
+            }
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, text/plain, */*",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "User-Agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Pragma",
+                "value": "no-cache",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Origin",
+                "value": "https://app.hackthebox.eu",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{API}}/university/all/list",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "university",
+                "all",
+                "list"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "University of Jordan",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Retrieve the information profile for a team including captain, motto and other attributes."
+          }
+        },
+        {
+          "name": "Get University Profile",
+          "protocolProfileBehavior": {
+            "disabledSystemHeaders": {
+              "user-agent": true,
+              "accept": true
+            }
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json, text/plain, */*",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "User-Agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Pragma",
+                "value": "no-cache",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Origin",
+                "value": "https://app.hackthebox.eu",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{API}}/university/profile/{{UNIVERSITY_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "university",
+                "profile",
+                "{{UNIVERSITY_ID}}"
+              ]
+            },
+            "description": "Retrieve the information profile for a team including captain, motto and other attributes."
+          }
+        },
+        {
+          "name": "Get University Statistics (Owns)",
+          "protocolProfileBehavior": {
+            "disabledSystemHeaders": {
+              "user-agent": true
+            }
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/university/stats/owns/{{UNIVERSITY_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "university",
+                "stats",
+                "owns",
+                "{{UNIVERSITY_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List University Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/university/members/{{UNIVERSITY_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "university",
+                "members",
+                "{{UNIVERSITY_ID}}"
+              ]
+            },
+            "description": "List the members of a team (both active and pending / invited), given its ID."
+          }
+        }
+      ],
+      "description": "Team-related requests.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "💻 Machines",
+      "item": [
+        {
+          "name": "Graphs",
+          "item": [
+            {
+              "name": "Graph Data: Difficulty Ratings By Own Type (User/Root)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/graph/owns/difficulty/{{MACHINE_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "graph",
+                    "owns",
+                    "difficulty",
+                    "{{MACHINE_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Graph Data: Activity",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/graph/activity/{{MACHINE_ID}}/{{PERIOD}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "graph",
+                    "activity",
+                    "{{MACHINE_ID}}",
+                    "{{PERIOD}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Graph Data: Matrix",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/graph/matrix/{{MACHINE_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "graph",
+                    "matrix",
+                    "{{MACHINE_ID}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recommendations",
+          "item": [
+            {
+              "name": "Machine Recommendation Card (All)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/recommended",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "recommended"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Machine Recommendation Card (Retired)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/recommended/retired",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "recommended",
+                    "retired"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reviews",
+          "item": [
+            {
+              "name": "Machine Reviews",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/reviews/{{RETIRED_MACHINE_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "reviews",
+                    "{{RETIRED_MACHINE_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer's Review for Machine",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/reviews/user/{{MACHINE_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "reviews",
+                    "user",
+                    "{{MACHINE_ID}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Active Machines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/list",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "list"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Release-Scheduled Machines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/unreleased",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "unreleased"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Retired Machines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/list/retired",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "list",
+                "retired"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Bearer's Todo Machines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/list/todo",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "list",
+                "todo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Profile (Includes Blood Info)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/profile/{{MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "profile",
+                "{{MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Info (No Blood Info)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/info/{{MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "info",
+                "{{MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/activity/{{MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "activity",
+                "{{MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Top 25 Owners",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/owns/top/{{MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "owns",
+                "top",
+                "{{MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Tags (Attack Path, Sub, Language)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/tags/{{RETIRED_MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "tags",
+                "{{RETIRED_MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Changelog (Not Implemented)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/changelog/{{MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "changelog",
+                "{{MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: List Tags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/tags/{{RETIRED_MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "tags",
+                "{{RETIRED_MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: List Walkthroughs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/walkthroughs/{{RETIRED_MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "walkthroughs",
+                "{{RETIRED_MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: List Walkthrough Language Options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/walkthroughs/language/list",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "walkthroughs",
+                "language",
+                "list"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Get Official Writeup (if Available) by Machine ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/writeup/{{RETIRED_MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "writeup",
+                "{{RETIRED_MACHINE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Machine: Bearer's Active",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/machine/active",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "machine",
+                "active"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎯 Challenges",
+      "item": [
+        {
+          "name": "Recommendations",
+          "item": [
+            {
+              "name": "Challenge Recommendation Card (All)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/challenge/recommended",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "challenge",
+                    "recommended"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Challenge Recommendation Card (Retired)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/challenge/recommended/retired",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "challenge",
+                    "recommended",
+                    "retired"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reviews",
+          "item": [
+            {
+              "name": "Challenge Reviews",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/challenge/reviews/{{CHALLENGE_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "challenge",
+                    "reviews",
+                    "{{CHALLENGE_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer's Review for Challenge",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/challenge/reviews/user/{{CHALLENGE_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "challenge",
+                    "reviews",
+                    "user",
+                    "{{CHALLENGE_ID}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Categories",
+          "item": [
+            {
+              "name": "List Categories",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/challenge/categories/list",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "challenge",
+                    "categories",
+                    "list"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Active Challenges",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/challenge/list",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "challenge",
+                "list"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Retired Challenges",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/challenge/list/retired",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "challenge",
+                "list",
+                "retired"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Challenge: Profile (Includes Blood Info)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/challenge/info/{{CHALLENGE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "challenge",
+                "info",
+                "{{CHALLENGE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Challenge: Activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/challenge/activity/{{CHALLENGE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "challenge",
+                "activity",
+                "{{CHALLENGE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Challenge: Changelog (Not Implemented)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/challenge/changelog/{{CHALLENGE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "challenge",
+                "changelog",
+                "{{CHALLENGE_ID}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Challenge: Download Zip (Blob)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/challenge/download/{{CHALLENGE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "challenge",
+                "download",
+                "{{CHALLENGE_ID}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🚉 Tracks",
+      "item": [
+        {
+          "name": "List Available Tracks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/tracks",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "tracks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Track Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/tracks/{{TRACK_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "tracks",
+                "{{TRACK_ID}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Users",
+      "item": [
+        {
+          "name": "Self / Token Bearer",
+          "item": [
+            {
+              "name": "Bearer: Connection Status",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/connection/status",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "connection",
+                    "status"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: (VIP) Active Machine",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/active",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "active"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Followers",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/followers",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "followers"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Info",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/info",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "info"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Settings",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/settings",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "settings"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Subscription Status",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/subscriptions",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "subscriptions"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Subscription Balance",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/subscriptions/balance",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "subscriptions",
+                    "balance"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Recurly URL to Manage Subscriptions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/subscriptions/manage/recurly",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "subscriptions",
+                    "manage",
+                    "recurly"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Enrolled Tracks",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/tracks",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "tracks"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Other User's Profile",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/profile/basic/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "profile",
+                    "basic",
+                    "{{MEMBER_ID}}"
+                  ]
+                },
+                "description": "The same as **User Profile: Overview**, but with added fields about the Bearer's relationship to the other user (e.g. whether respected or followed)"
+              }
+            },
+            {
+              "name": "Bearer: Anonymous ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/anonymized/id",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "anonymized",
+                    "id"
+                  ]
+                },
+                "description": "Absolutely no idea what this is for. Please let me know if you do! 🤷‍♀️"
+              }
+            },
+            {
+              "name": "Bearer: Anonymous ID Copy",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/submissions/machines",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "submissions",
+                    "machines"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: Challenge Submissions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/user/submissions/challenges",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "user",
+                    "submissions",
+                    "challenges"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Bearer: List Todo Machines",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/machine/list/todo",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "machine",
+                    "list",
+                    "todo"
+                  ]
+                }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Profile",
+          "item": [
+            {
+              "name": "Progress",
+              "item": [
+                {
+                  "name": "User Progress: Machines (By OS)",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{API}}/profile/progress/machines/os/{{MEMBER_ID}}",
+                      "host": [
+                        "{{API}}"
+                      ],
+                      "path": [
+                        "profile",
+                        "progress",
+                        "machines",
+                        "os",
+                        "{{MEMBER_ID}}"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "User Progress: Challenges (Total + by Category)",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{API}}/profile/progress/challenges/{{MEMBER_ID}}",
+                      "host": [
+                        "{{API}}"
+                      ],
+                      "path": [
+                        "profile",
+                        "progress",
+                        "challenges",
+                        "{{MEMBER_ID}}"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "User Progress: Endgame",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{API}}/profile/progress/endgame/{{MEMBER_ID}}",
+                      "host": [
+                        "{{API}}"
+                      ],
+                      "path": [
+                        "profile",
+                        "progress",
+                        "endgame",
+                        "{{MEMBER_ID}}"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "User Progress: Fortress",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{API}}/profile/progress/fortress/{{MEMBER_ID}}",
+                      "host": [
+                        "{{API}}"
+                      ],
+                      "path": [
+                        "profile",
+                        "progress",
+                        "fortress",
+                        "{{MEMBER_ID}}"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "User Progress: Pro Lab",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{API}}/profile/progress/prolab/{{MEMBER_ID}}",
+                      "host": [
+                        "{{API}}"
+                      ],
+                      "path": [
+                        "profile",
+                        "progress",
+                        "prolab",
+                        "{{MEMBER_ID}}"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "User Profile: Activity",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/profile/activity/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "profile",
+                    "activity",
+                    "{{MEMBER_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "User Profile: Bloods",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/profile/bloods/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "profile",
+                    "bloods",
+                    "{{MEMBER_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "User Profile: Submitted Content",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/profile/content/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "profile",
+                    "content",
+                    "{{MEMBER_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "User Profile: Achievement Graph",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/profile/graph/{{PERIOD}}/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "profile",
+                    "graph",
+                    "{{PERIOD}}",
+                    "{{MEMBER_ID}}"
+                  ]
+                },
+                "description": "Where {{PERIOD}} is one of [\"1Y\", \"6M\", \"3M\", \"1M\", \"1W\"]"
+              }
+            },
+            {
+              "name": "User Profile: Machine Ownage Chart By Attack Path",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/profile/chart/machines/attack/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "profile",
+                    "chart",
+                    "machines",
+                    "attack",
+                    "{{MEMBER_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "User Profile: Overview",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/profile/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "profile",
+                    "{{MEMBER_ID}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "User Profile: Badges",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/profile/badges/{{MEMBER_ID}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "profile",
+                    "badges",
+                    "{{MEMBER_ID}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validate Achievement / Own",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/user/achievement/{{TARGET_TYPE}}/{{MEMBER_ID}}/{{MACHINE_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "user",
+                "achievement",
+                "{{TARGET_TYPE}}",
+                "{{MEMBER_ID}}",
+                "{{MACHINE_ID}}"
+              ]
+            },
+            "description": "Syntax: `/user/achievement/{TARGET_TYPE}/{MEMBER_ID}/{TARGET_ID}`"
+          }
+        }
+      ],
+      "description": "The API endpoints relating to HTB users are organized a bit haphazardly. Generally, there are reflection requests (those without an ID, which specify the API token bearer / 'self' user) and requests specifying an ID, concerning another user. ",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎮 Endgames",
+      "item": [
+        {
+          "name": "List Endgames",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/endgames",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "endgames"
+              ]
+            },
+            "description": "List all of the currently available Endgames."
+          }
+        },
+        {
+          "name": "Get Endgame Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/endgame/{{ENDGAME_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "endgame",
+                "{{ENDGAME_ID}}"
+              ]
+            },
+            "description": "Get the profile of a specific Endgame."
+          }
+        },
+        {
+          "name": "Get Endgame Flag List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/endgame/{{ENDGAME_ID}}/flags",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "endgame",
+                "{{ENDGAME_ID}}",
+                "flags"
+              ]
+            },
+            "description": "Get the list of flags for a specific Endgame."
+          }
+        },
+        {
+          "name": "Get Endgame Machine List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/endgame/{{ENDGAME_ID}}/machines",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "endgame",
+                "{{ENDGAME_ID}}",
+                "machines"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💎 Pro Labs",
+      "item": [
+        {
+          "name": "List Pro Labs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolabs",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolabs"
+              ]
+            },
+            "description": "List all of the currently available Pro Labs."
+          }
+        },
+        {
+          "name": "Get Pro Lab Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolab/{{PROLAB_ID}}/info",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolab",
+                "{{PROLAB_ID}}",
+                "info"
+              ]
+            },
+            "description": "List all of the currently available Pro Labs."
+          }
+        },
+        {
+          "name": "Get Pro Lab Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolab/{{PROLAB_ID}}/overview",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolab",
+                "{{PROLAB_ID}}",
+                "overview"
+              ]
+            },
+            "description": "List all of the currently available Pro Labs."
+          }
+        },
+        {
+          "name": "Get Pro Lab Machine List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolab/{{PROLAB_ID}}/machines",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolab",
+                "{{PROLAB_ID}}",
+                "machines"
+              ]
+            },
+            "description": "List all of the currently available Pro Labs."
+          }
+        },
+        {
+          "name": "Get Pro Lab Flag List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolab/{{PROLAB_ID}}/flags",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolab",
+                "{{PROLAB_ID}}",
+                "flags"
+              ]
+            },
+            "description": "List all of the flags for a specific Pro Lab."
+          }
+        },
+        {
+          "name": "Get Pro Lab FAQ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolab/{{PROLAB_ID}}/faq",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolab",
+                "{{PROLAB_ID}}",
+                "faq"
+              ]
+            },
+            "description": "List all of the currently available Pro Labs."
+          }
+        },
+        {
+          "name": "Get Pro Lab Reviews Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolab/{{PROLAB_ID}}/reviews_overview",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolab",
+                "{{PROLAB_ID}}",
+                "reviews_overview"
+              ]
+            },
+            "description": "Selection of reviews concerning the specified Pro Lab"
+          }
+        },
+        {
+          "name": "Get Pro Lab Reviews (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/prolab/{{ENDGAME_ID}}/reviews?page=1",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "prolab",
+                "{{ENDGAME_ID}}",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number of results to return (15 results per page). If omitted, the first page is returned."
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏦 Fortresses",
+      "item": [
+        {
+          "name": "List Fortresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/fortresses",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "fortresses"
+              ]
+            },
+            "description": "List all of the currently available Fortresses."
+          }
+        },
+        {
+          "name": "Get Fortress Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/fortress/{{FORTRESS_ID}}",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "fortress",
+                "{{FORTRESS_ID}}"
+              ]
+            },
+            "description": "Get the profile of a specific Fortress."
+          }
+        },
+        {
+          "name": "Get Fortress Flag List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/fortress/{{FORTRESS_ID}}/flags",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "fortress",
+                "{{FORTRESS_ID}}",
+                "flags"
+              ]
+            },
+            "description": "Get the list of flags for a specific Fortress."
+          }
+        }
+      ],
+      "description": "_Hack The Box has not yet published any endpoints related to Fortresses yet. Check back soon!_",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🌅 Starting Point",
+      "item": [
+        {
+          "name": "List Starting Point Machines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/sp/machines",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "sp",
+                "machines"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏴‍☠️ Battlegrounds",
+      "item": [],
+      "description": "_Because I do not have a good understanding of Battlegrounds (or the time to try them out), I have not added any endpoints here yet for them. Feel free to contribute!_",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📡 Misc / UI",
+      "item": [
+        {
+          "name": "List Badges by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/badges",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "badges"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Badges by Category (Alt)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/category/badges",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "category",
+                "badges"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard: List Bug Feedback Areas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/user/feedback/bug/areas",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "user",
+                "feedback",
+                "bug",
+                "areas"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard: Machine, Challenge Counts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/content/stats",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "content",
+                "stats"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard: Interface Changelog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/changelogs",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "changelogs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard: List HTB Servers (Connection Points)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/lab/list",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "lab",
+                "list"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard: List Improvement Feedback Areas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/user/feedback/improvement/areas",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "user",
+                "feedback",
+                "improvement",
+                "areas"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard: Various Platform Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/user/dashboard",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "user",
+                "dashboard"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sidebar: Changelog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/sidebar/changelog",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "sidebar",
+                "changelog"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sidebar: Announcement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/sidebar/announcement",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "sidebar",
+                "announcement"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Rankings",
+      "item": [
+        {
+          "name": "Country",
+          "item": [
+            {
+              "name": "Country:  (Bearer's) - Best for Period",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/country/best?period={{PERIOD}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "country",
+                    "best"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Country: (Bearer's) - Overview",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/country/overview?period={{PERIOD}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "country",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Country: (Bearer's) - Ranking Bracket",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/country/ranking_bracket",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "country",
+                    "ranking_bracket"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Team",
+          "item": [
+            {
+              "name": "Team:  (Bearer's) - Best for Period",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/team/best?period={{PERIOD}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "team",
+                    "best"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Team: (Bearer's) - Overview",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/team/overview?period={{PERIOD}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "team",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Team: (Bearer's) - Ranking Bracket",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/team/ranking_bracket",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "team",
+                    "ranking_bracket"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "University",
+          "item": [
+            {
+              "name": "University:  (Bearer's) - Best for Period",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/university/best?period={{PERIOD}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "university",
+                    "best"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "University: (Bearer's) - Overview",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/university/overview?period={{PERIOD}}",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "university",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "University: (Bearer's) - Ranking Bracket",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/university/ranking_bracket",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "university",
+                    "ranking_bracket"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "User",
+          "item": [
+            {
+              "name": "User:  (Bearer's) - Best for Period",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/user/best?period={{PERIOD}}&vip=0",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "user",
+                    "best"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    },
+                    {
+                      "key": "vip",
+                      "value": "0",
+                      "description": "Whether to base rankings off of VIP users or not"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "User: (Bearer's) - Overview",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/user/overview?period={{PERIOD}}&vip=0",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "user",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "period",
+                      "value": "{{PERIOD}}"
+                    },
+                    {
+                      "key": "vip",
+                      "value": "0",
+                      "description": "Whether to base rankings off of VIP users or not",
+                      "type": "text"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "User: (Bearer's) - Ranking Bracket",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{API}}/rankings/user/ranking_bracket?vip=0",
+                  "host": [
+                    "{{API}}"
+                  ],
+                  "path": [
+                    "rankings",
+                    "user",
+                    "ranking_bracket"
+                  ],
+                  "query": [
+                    {
+                      "key": "vip",
+                      "value": "0",
+                      "description": "Whether to base rankings off of VIP users or not",
+                      "type": "text"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Countries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/countries",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "countries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/teams",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "teams"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Universities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/universities",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "universities"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{API}}/rankings/users?vip=1",
+              "host": [
+                "{{API}}"
+              ],
+              "path": [
+                "rankings",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "vip",
+                  "value": "1",
+                  "description": "Whether to base rankings off of VIP users or not",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "API",
+      "value": "https://www.hackthebox.com/api/v4"
+    },
+    {
+      "key": "TEAM_ID",
+      "value": "2102"
+    },
+    {
+      "key": "ENDGAME_ID",
+      "value": "3"
+    },
+    {
+      "key": "MEMBER_ID",
+      "value": "5833"
+    },
+    {
+      "key": "MACHINE_ID",
+      "value": "298"
+    },
+    {
+      "key": "CHALLENGE_ID",
+      "value": "70"
+    },
+    {
+      "key": "FORTRESS_ID",
+      "value": "1"
+    },
+    {
+      "key": "PROLAB_ID",
+      "value": "1"
+    },
+    {
+      "key": "PERIOD",
+      "value": "1Y"
+    },
+    {
+      "key": "TARGET_TYPE",
+      "value": "machine"
+    },
+    {
+      "key": "TRACK_ID",
+      "value": "1"
+    },
+    {
+      "key": "RETIRED_MACHINE_ID",
+      "value": "232"
+    },
+    {
+      "key": "RETIRED_CHALLENGE_ID",
+      "value": "3"
+    },
+    {
+      "key": "UNIVERSITY_ID",
+      "value": "1"
+    },
+    {
+      "key": "8885abff-aa5e-422f-a83d-597caf0be799",
+      "value": "",
+      "type": "string",
+      "disabled": true
+    }
+  ]
+}

@@ -56,14 +56,17 @@ flowchart LR
 officially documented API. `htb-presence` instead talks to the same internal REST API
 that HTB's own web app (`app.hackthebox.com`) uses, the same way every community HTB
 tool does: via a user-generated **App Token** against HTB's internal v4/v5 endpoints
-(`https://www.hackthebox.com/api/v4/...`, `https://labs.hackthebox.com/api/v4/...`).
+(`https://labs.hackthebox.com/api/v4/...`). The same paths used to be served from
+`https://www.hackthebox.com/api/v4/...`; that host now answers 404 on every v4 path
+(rechecked 2026-09-28), so `DefaultAccountURL` is a vestigial fallback rather than a
+second working root.
 This is unofficial and undocumented by HTB, but reasonably well understood via
 community reverse-engineering:
 
 | Resource | What it's useful for |
 |---|---|
 | [`GoToolSharing/htb-cli`](https://github.com/GoToolSharing/htb-cli) | **Primary reference.** A full Go CLI using App Token auth against this same API — auth flow, request shape, and "active machine" detection can be studied directly since it's the same language. |
-| [`Propolisa/htb-api-docs`](https://github.com/Propolisa/htb-api-docs) | Community-maintained Postman collection covering 100+ endpoints — the broadest endpoint reference. |
+| [`Propolisa/htb-api-docs`](https://github.com/Propolisa/htb-api-docs) | Community-maintained Postman collection covering 100+ endpoints — the broadest endpoint reference. A sanitized, response-stripped copy is vendored in [`docs/api/`](api/README.md). |
 | [`T-Crypt/HTB-API`](https://github.com/T-Crypt/HTB-API) | Minimal curl/PowerShell examples per endpoint — good for quickly checking a response shape. |
 | [`mxrch/htb_api`](https://github.com/mxrch/htb_api) | Endpoints pulled directly from HTB's frontend JS — useful cross-check when other docs are stale. |
 | [`Pirrandi/htb-presence`](https://github.com/Pirrandi/htb-presence) | An existing Python project with the *same name and same goal* (VPN/machine/flag detection → Discord Rich Presence). Worth reading for the detection logic and UX even though the implementation language differs. |
@@ -77,6 +80,10 @@ community reverse-engineering:
     followed by `/challenge/info/{id}`.
   - Optionally fetch rank/points for display (account id from `/user/info`, then
     `/user/profile/basic/{id}` for rank and points).
+  - Reuse a fetched machine profile for `DefaultProfileTTL` (10 minutes) rather than
+    requesting it on every poll: OS, difficulty, avatar and the flags barely change
+    during a session, and reusing one halves what a 30s poll spends. Flag markers can
+    therefore lag by up to that window.
   - Translate HTTP/auth/rate-limit errors into typed errors the scheduler can react to
     (retry vs. fatal), and detect likely "API shape changed" errors (e.g. unexpected
     JSON structure) as a distinct, loud failure mode rather than silently returning
@@ -86,11 +93,13 @@ community reverse-engineering:
   sees a small internal `Activity` type. This keeps an eventual API break to one
   package.
 - **VPN fallback:** when nothing is spawned and `vpn_fallback` is on, the scheduler
-  calls `/connection/status` (labs root, then `www.hackthebox.com` on 404). If that
-  call fails for a reason other than a rate limit, `internal/vpn` looks for a local
-  route to `10.10.10.0/24`, `10.10.11.0/24`, or `10.129.0.0/16` with prefix length
-  at least 16. Linux and macOS also require a `tun`/`tap`/`utun`/`wintun` interface.
-  This enriches the idle state; it does not replace the activity fetch.
+  calls `/connection/status` (the community collection documents the same endpoint as
+  `/user/connection/status`; both answer on the labs root), falling back to
+  `DefaultAccountURL` on 404. If that call fails for a reason other than a rate limit,
+  `internal/vpn` looks for a local route to `10.10.10.0/24`, `10.10.11.0/24`, or
+  `10.129.0.0/16` with prefix length at least 16. Linux and macOS also require a
+  `tun`/`tap`/`utun`/`wintun` interface. This enriches the idle state; it does not
+  replace the activity fetch.
 
 ### 2.3 Scheduler / Poll Loop (`internal/presence` or `cmd/htb-presence`)
 

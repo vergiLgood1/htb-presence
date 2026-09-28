@@ -9,3 +9,6 @@ config.local.yaml
 
 # Throwaway scratch programs kept on disk but never committed
 /tmp/
+
+# Pristine third-party downloads kept on disk but never committed
+docs/api/*.raw.json
