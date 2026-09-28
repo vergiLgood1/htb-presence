@@ -63,6 +63,39 @@ func TestNilRecorderIsSafe(t *testing.T) {
 	}
 }
 
+func TestSummarize(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	r, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions := []Session{
+		{Kind: "machine", MachineID: 1, MachineName: "Vaccine", StartedAt: time.Unix(0, 0).UTC(), EndedAt: time.Unix(3600, 0).UTC()},
+		{Kind: "machine", MachineID: 1, MachineName: "Vaccine", StartedAt: time.Unix(4000, 0).UTC(), EndedAt: time.Unix(4000+1800, 0).UTC()},
+		{Kind: "challenge", ChallengeID: 7, ChallengeName: "Phonebook", StartedAt: time.Unix(8000, 0).UTC(), EndedAt: time.Unix(8000+600, 0).UTC()},
+	}
+	for _, s := range sessions {
+		if err := r.Record(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r.Close()
+
+	summary, err := SummarizeFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Sessions != 3 || summary.Unique != 2 {
+		t.Fatalf("summary = %+v, want 3 sessions and 2 targets", summary)
+	}
+	if summary.Targets[0].Name != "Vaccine" || summary.Targets[0].Total != 90*time.Minute {
+		t.Fatalf("top target = %+v, want Vaccine 90m", summary.Targets[0])
+	}
+	if !strings.Contains(Format(summary), "Vaccine") {
+		t.Fatalf("Format = %q", Format(summary))
+	}
+}
+
 func TestOpenCreatesFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested.jsonl")
 	if _, err := Open(path); err != nil {
