@@ -6,3 +6,6 @@
 # Local config that may contain tokens
 config.yaml
 config.local.yaml
+
+# Throwaway scratch programs kept on disk but never committed
+/tmp/
