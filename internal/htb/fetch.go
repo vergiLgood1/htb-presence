@@ -117,14 +117,53 @@ func (c *Client) challengeInfo(ctx context.Context, id int) (challengeFields, er
 	return challengeFields{}, fmt.Errorf("%w: %s is missing a name", ErrUnexpectedResponse, path)
 }
 
-// fillMachine loads /machine/profile/{id} onto m.
+// fillMachine loads /machine/profile/{id} onto m, reusing the profile fetched
+// for the same machine while it is still fresh. A poll therefore costs one
+// request instead of two for as long as a machine session lasts.
 func (c *Client) fillMachine(ctx context.Context, m *Machine) error {
+	if profile, ok := c.cachedMachineProfile(m.ID); ok {
+		applyProfile(m, &profile)
+		return nil
+	}
+
 	profile, err := c.machineProfile(ctx, m.ID)
 	if err != nil {
 		return err
 	}
+	c.storeMachineProfile(m.ID, *profile)
 	applyProfile(m, profile)
 	return nil
+}
+
+// cachedMachineProfile returns the cached profile for id while it is fresh.
+func (c *Client) cachedMachineProfile(id int) (machineProfile, bool) {
+	if c.profileTTL <= 0 {
+		return machineProfile{}, false
+	}
+
+	c.profileMu.Lock()
+	defer c.profileMu.Unlock()
+
+	if c.profile == nil || c.profile.id != id {
+		return machineProfile{}, false
+	}
+	if c.clock().Sub(c.profile.fetchedAt) >= c.profileTTL {
+		return machineProfile{}, false
+	}
+	return c.profile.profile, true
+}
+
+// storeMachineProfile remembers the profile for id. Only the most recent
+// machine is kept, which bounds the cache without needing eviction.
+func (c *Client) storeMachineProfile(id int, profile machineProfile) {
+	if c.profileTTL <= 0 {
+		return
+	}
+
+	c.profileMu.Lock()
+	defer c.profileMu.Unlock()
+
+	c.profile = &cachedProfile{id: id, profile: profile, fetchedAt: c.clock()}
 }
 
 // VPNConnected reports whether the account has an HTB VPN tunnel up.

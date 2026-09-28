@@ -444,3 +444,92 @@ func TestUserLive(t *testing.T) {
 	}
 	t.Logf("user: name=%q rank=%q points=%d", user.Name, user.Rank, user.Points)
 }
+
+// TestMachineProfileCache shows that a poll reuses a fresh machine profile and
+// refetches it once it expires, the machine changes, or caching is switched off.
+func TestMachineProfileCache(t *testing.T) {
+	var profileRequests []string
+	machineID := "42"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/machine/active":
+			io.WriteString(w, `{"info":{"id":`+machineID+`,"expires_at":"2026-09-18 20:00:00"}}`)
+		case "/machine/profile/42", "/machine/profile/7":
+			profileRequests = append(profileRequests, r.URL.Path)
+			io.WriteString(w, `{"info":{"name":"`+r.URL.Path[len("/machine/profile/"):]+`","os":"Linux","difficultyText":"Easy"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	now := time.Unix(1000, 0)
+	client := NewClient("aaa.bbb.ccc", WithBaseURL(srv.URL), WithProfileTTL(time.Minute))
+	client.now = func() time.Time { return now }
+
+	fetch := func(t *testing.T) *Machine {
+		t.Helper()
+		activity, err := client.CurrentActivity(context.Background())
+		if err != nil {
+			t.Fatalf("CurrentActivity: %v", err)
+		}
+		if activity.Machine == nil {
+			t.Fatal("CurrentActivity returned no machine")
+		}
+		return activity.Machine
+	}
+
+	if m := fetch(t); m.Name != "42" {
+		t.Fatalf("name = %q, want the fetched profile", m.Name)
+	}
+	if len(profileRequests) != 1 {
+		t.Fatalf("profile requests = %v, want one", profileRequests)
+	}
+
+	if m := fetch(t); m.Name != "42" || len(profileRequests) != 1 {
+		t.Errorf("a poll inside the TTL refetched the profile: %v", profileRequests)
+	}
+
+	now = now.Add(time.Minute)
+	fetch(t)
+	if len(profileRequests) != 2 {
+		t.Errorf("profile requests after the TTL = %v, want a refetch", profileRequests)
+	}
+
+	machineID = "7"
+	if m := fetch(t); m.Name != "7" {
+		t.Errorf("name after switching machines = %q, want the new profile", m.Name)
+	}
+	if len(profileRequests) != 3 || profileRequests[2] != "/machine/profile/7" {
+		t.Errorf("profile requests after switching machines = %v", profileRequests)
+	}
+}
+
+// TestMachineProfileCacheDisabled shows that a zero TTL fetches the profile on
+// every poll.
+func TestMachineProfileCacheDisabled(t *testing.T) {
+	var profileCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/machine/active":
+			io.WriteString(w, `{"info":{"id":42,"expires_at":"2026-09-18 20:00:00"}}`)
+		case "/machine/profile/42":
+			profileCalls++
+			io.WriteString(w, `{"info":{"name":"Uncached","os":"Linux","difficultyText":"Easy"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	client := NewClient("aaa.bbb.ccc", WithBaseURL(srv.URL), WithProfileTTL(0))
+	for i := 0; i < 2; i++ {
+		if _, err := client.CurrentActivity(context.Background()); err != nil {
+			t.Fatalf("CurrentActivity: %v", err)
+		}
+	}
+	if profileCalls != 2 {
+		t.Errorf("profile calls = %d, want 2 with caching disabled", profileCalls)
+	}
+}

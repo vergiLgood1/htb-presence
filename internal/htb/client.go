@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,6 +28,15 @@ const DefaultBaseURL = "https://labs.hackthebox.com/api/v4"
 // Labs and the main site have both served this endpoint; the client tries
 // DefaultBaseURL first and falls back here on 404.
 const DefaultAccountURL = "https://www.hackthebox.com/api/v4"
+
+// DefaultProfileTTL is how long a fetched machine profile is reused before it is
+// requested again.
+//
+// A profile carries OS, difficulty, avatar and the user/root flags. Those change
+// at most a couple of times per machine session, so reusing one keeps a 30s poll
+// from spending two requests on every tick. The trade-off is that the flag
+// markers can lag by up to this long.
+const DefaultProfileTTL = 10 * time.Minute
 
 // maxResponseBytes caps how much of a response is read, guarding against a
 // misbehaving or unexpected server.
@@ -131,11 +141,32 @@ type Fetcher interface {
 }
 
 // Client is an HTB API client.
+//
+// It is safe for concurrent use. The only state it keeps is a single-entry
+// machine profile cache.
 type Client struct {
 	baseURL    string
 	accountURL string
 	token      string
 	httpClient *http.Client
+
+	// profileTTL is how long a fetched machine profile stays usable.
+	// Zero disables the cache.
+	profileTTL time.Duration
+
+	// profileMu guards profile.
+	profileMu sync.Mutex
+	profile   *cachedProfile
+
+	// now supplies the current time for cache expiry; nil means time.Now.
+	now func() time.Time
+}
+
+// cachedProfile is the last machine profile fetched, keyed by machine id.
+type cachedProfile struct {
+	id        int
+	profile   machineProfile
+	fetchedAt time.Time
 }
 
 // Option customizes a Client.
@@ -157,12 +188,19 @@ func WithHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.httpClient = hc }
 }
 
+// WithProfileTTL overrides how long a fetched machine profile is reused. Zero
+// disables the cache, so every poll fetches the profile again.
+func WithProfileTTL(ttl time.Duration) Option {
+	return func(c *Client) { c.profileTTL = ttl }
+}
+
 // NewClient returns an HTB client authenticating with the given App Token.
 func NewClient(token string, opts ...Option) *Client {
 	c := &Client{
 		baseURL:    DefaultBaseURL,
 		accountURL: DefaultAccountURL,
 		token:      token,
+		profileTTL: DefaultProfileTTL,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 			// Do not follow redirects: the API signals an expired or invalid
@@ -176,6 +214,14 @@ func NewClient(token string, opts ...Option) *Client {
 		opt(c)
 	}
 	return c
+}
+
+// clock returns the current time, honoring the test hook in now.
+func (c *Client) clock() time.Time {
+	if c.now != nil {
+		return c.now()
+	}
+	return time.Now()
 }
 
 // CurrentActivity reports what the user is currently doing on HTB.
