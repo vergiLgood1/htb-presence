@@ -41,6 +41,30 @@ func TestActivityPayload(t *testing.T) {
 	}
 }
 
+func TestActivityPayloadButtonsAndEnd(t *testing.T) {
+	end := time.Unix(1700001000, 0)
+	got := (&Activity{
+		EndTime: end,
+		Buttons: []Button{
+			{Label: "Open machine", URL: "https://app.hackthebox.com/machines/Vaccine"},
+			{Label: "skip", URL: "http://insecure.example"},
+			{Label: "HTB profile", URL: "https://app.hackthebox.com/users/1"},
+		},
+	}).payload()
+
+	timestamps := got["timestamps"].(map[string]any)
+	if timestamps["end"] != end.UnixMilli() {
+		t.Errorf("end = %v", timestamps["end"])
+	}
+	buttons := got["buttons"].([]map[string]any)
+	if len(buttons) != 2 {
+		t.Fatalf("buttons = %v, want 2 https buttons", buttons)
+	}
+	if buttons[0]["label"] != "Open machine" || buttons[1]["label"] != "HTB profile" {
+		t.Errorf("buttons = %v", buttons)
+	}
+}
+
 func TestActivityPayloadEmpty(t *testing.T) {
 	if got := (&Activity{}).payload(); len(got) != 0 {
 		t.Errorf("payload = %v, want empty", got)

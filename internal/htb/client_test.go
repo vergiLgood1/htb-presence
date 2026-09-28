@@ -195,8 +195,8 @@ func TestUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("User: %v", err)
 	}
-	if user.Name != "Yodev1" || user.Rank != "Noob" || user.Points != 120 {
-		t.Errorf("User = %+v, want Yodev1/Noob/120", user)
+	if user.ID != 3967824 || user.Name != "Yodev1" || user.Rank != "Noob" || user.Points != 120 {
+		t.Errorf("User = %+v, want 3967824/Yodev1/Noob/120", user)
 	}
 }
 
@@ -256,6 +256,93 @@ func TestResolveAssetURL(t *testing.T) {
 				t.Errorf("resolveAssetURL(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCurrentActivityChallenge(t *testing.T) {
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/machine/active":
+			io.WriteString(w, `{"info":null}`)
+		case "/season/machine/active":
+			http.NotFound(w, r)
+		case "/challenge/active":
+			io.WriteString(w, `{"info":{"id":7,"expires_at":"2026-09-18 21:00:00"}}`)
+		case "/challenge/info/7":
+			io.WriteString(w, `{"info":{"id":7,"name":"Phonebook","category_name":"Web","difficulty":"Easy"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	activity, err := client.CurrentActivity(context.Background())
+	if err != nil {
+		t.Fatalf("CurrentActivity: %v", err)
+	}
+	if activity.Machine != nil {
+		t.Fatalf("Machine = %+v, want nil", activity.Machine)
+	}
+	ch := activity.Challenge
+	if ch == nil || ch.Name != "Phonebook" || ch.Category != "Web" || ch.Difficulty != "Easy" || ch.ID != 7 {
+		t.Fatalf("Challenge = %+v", ch)
+	}
+	wantExpiry := time.Date(2026, 9, 18, 21, 0, 0, 0, time.UTC)
+	if !ch.ExpiresAt.Equal(wantExpiry) {
+		t.Errorf("ExpiresAt = %s, want %s", ch.ExpiresAt, wantExpiry)
+	}
+}
+
+func TestCurrentActivitySeasonMachine(t *testing.T) {
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/machine/active":
+			io.WriteString(w, `{"info":null}`)
+		case "/season/machine/active":
+			io.WriteString(w, `{"data":{"id":9,"ip":"10.10.11.9","play_info":{"expires_at":"2026-09-18 22:00:00"}}}`)
+		case "/machine/profile/9":
+			io.WriteString(w, `{"info":{"name":"Seasonal","os":"Windows","difficultyText":"Hard","authUserInUserOwns":true,"authUserInRootOwns":true}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	activity, err := client.CurrentActivity(context.Background())
+	if err != nil {
+		t.Fatalf("CurrentActivity: %v", err)
+	}
+	m := activity.Machine
+	if m == nil || m.Name != "Seasonal" || m.OS != "Windows" || !m.UserOwned || !m.RootOwned {
+		t.Fatalf("Machine = %+v", m)
+	}
+}
+
+func TestVPNConnected(t *testing.T) {
+	labs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(labs.Close)
+	account := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `[{"product":"labs","connection":{"ip4":"10.10.14.5"}}]`)
+	}))
+	t.Cleanup(account.Close)
+
+	client := NewClient("aaa.bbb.ccc", WithBaseURL(labs.URL), WithAccountURL(account.URL))
+	vpn, err := client.VPNConnected(context.Background())
+	if err != nil {
+		t.Fatalf("VPNConnected: %v", err)
+	}
+	if !vpn.Connected || vpn.Product != "labs" {
+		t.Errorf("VPN = %+v, want connected labs", vpn)
+	}
+}
+
+func TestParseConnectionStatusObject(t *testing.T) {
+	vpn, err := parseConnectionStatus([]byte(`{"status":"0","connection":null}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vpn.Connected {
+		t.Errorf("VPN = %+v, want disconnected", vpn)
 	}
 }
 

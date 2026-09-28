@@ -9,6 +9,7 @@ import (
 	"github.com/vergiLgood1/htb-presence/internal/discord"
 	"github.com/vergiLgood1/htb-presence/internal/history"
 	"github.com/vergiLgood1/htb-presence/internal/htb"
+	"github.com/vergiLgood1/htb-presence/internal/vpn"
 )
 
 // DiscordClient is the part of a Discord IPC client the scheduler uses.
@@ -69,6 +70,7 @@ type Scheduler struct {
 	failures      int
 	user          *htb.User
 	userFetchedAt time.Time
+	vpnWarned     bool
 }
 
 // Run polls until ctx is cancelled, then clears the presence and disconnects.
@@ -111,31 +113,36 @@ func (s *Scheduler) tick(ctx context.Context) time.Duration {
 		s.logger().Info("connected to discord")
 	}
 
-	if s.Options.ShowRank {
+	if activity == nil {
+		activity = &htb.Activity{}
+	}
+	if delay, ok := s.attachVPN(ctx, activity); ok {
+		return delay
+	}
+
+	if s.Options.wantsUser() {
 		user, err := s.cachedUser(ctx)
 		if err != nil {
-			s.logger().Warn("fetching HTB rank failed, using the cached value if any", "error", err)
+			s.logger().Warn("fetching HTB profile failed, using the cached value if any", "error", err)
 		}
 		if user != nil {
 			activity.User = user
 		}
 	}
 
-	start, ended := s.session.observe(machine(activity), s.now())
+	start, ended := s.session.observe(activityTarget(activity), s.now())
 	if ended != nil && s.History != nil {
 		if err := s.History.Record(*ended); err != nil {
 			s.logger().Warn("recording session history failed", "error", err)
 		}
 	}
 
-	next := Map(activity, Options{
-		ShowMachineName: s.Options.ShowMachineName,
-		ShowRank:        s.Options.ShowRank,
-		ShowTimer:       s.Options.ShowTimer,
-		SessionStart:    start,
-	})
+	opts := s.Options
+	opts.SessionStart = start
+	opts.Now = s.now
+	next := Map(activity, opts)
 
-	if s.published && s.last != nil && *s.last == *next {
+	if s.published && discord.Same(s.last, next) {
 		s.failures = 0
 		return s.interval()
 	}
@@ -154,8 +161,42 @@ func (s *Scheduler) tick(ctx context.Context) time.Duration {
 	s.last = next
 	s.published = true
 	s.failures = 0
-	s.logger().Info("presence updated", "details", next.Details, "state", next.State)
+	if next == nil {
+		s.logger().Info("presence cleared", "reason", "idle")
+	} else {
+		s.logger().Info("presence updated", "details", next.Details, "state", next.State)
+	}
 	return s.interval()
+}
+
+// attachVPN fills activity.VPN when the fallback is enabled and nothing is
+// spawned. The boolean reports that the caller should wait out the returned
+// delay instead of publishing, which happens when HTB rate-limits the status
+// call.
+func (s *Scheduler) attachVPN(ctx context.Context, activity *htb.Activity) (time.Duration, bool) {
+	if !s.Options.VPNFallback || activity.Machine != nil || activity.Challenge != nil {
+		return 0, false
+	}
+	status, err := s.Fetcher.VPNConnected(ctx)
+	if err == nil {
+		activity.VPN = status
+		return 0, false
+	}
+	var rate *htb.RateLimitError
+	if errors.As(err, &rate) {
+		s.failures++
+		delay := s.retryDelay(err)
+		s.logger().Warn("HTB VPN status was rate limited", "error", err, "retry_in", delay)
+		return delay, true
+	}
+	local, localErr := vpn.LocalConnected(ctx)
+	if !s.vpnWarned {
+		s.logger().Warn("HTB VPN status unavailable, checked local routes",
+			"error", err, "local_connected", local, "local_error", localErr)
+		s.vpnWarned = true
+	}
+	activity.VPN = htb.VPN{Connected: local}
+	return 0, false
 }
 
 // retryDelay returns how long to wait before the next attempt after a failure.
@@ -228,14 +269,8 @@ func (s *Scheduler) rankRefresh() time.Duration {
 // shutdown clears the presence, records any in-flight session, and closes the
 // Discord connection.
 func (s *Scheduler) shutdown() {
-	if s.session.machineID != 0 && s.History != nil {
-		ended := history.Session{
-			MachineID:   s.session.machineID,
-			MachineName: s.session.machineName,
-			StartedAt:   s.session.start,
-			EndedAt:     s.now(),
-		}
-		if err := s.History.Record(ended); err != nil {
+	if s.session.id != 0 && s.History != nil {
+		if err := s.History.Record(*s.session.ended(s.now())); err != nil {
 			s.logger().Warn("recording session history failed", "error", err)
 		}
 		s.session = session{}
@@ -271,48 +306,66 @@ func (s *Scheduler) now() time.Time {
 	return time.Now()
 }
 
-// machine returns the active machine, or nil when there is none.
-func machine(activity *htb.Activity) *htb.Machine {
+// targetRef identifies the spawned machine or challenge being timed.
+type targetRef struct {
+	kind string
+	id   int
+	name string
+}
+
+// activityTarget returns the spawned target, or a zero ref when idle.
+func activityTarget(activity *htb.Activity) targetRef {
 	if activity == nil {
-		return nil
+		return targetRef{}
 	}
-	return activity.Machine
+	if activity.Machine != nil {
+		return targetRef{kind: "machine", id: activity.Machine.ID, name: activity.Machine.Name}
+	}
+	if activity.Challenge != nil {
+		return targetRef{kind: "challenge", id: activity.Challenge.ID, name: activity.Challenge.Name}
+	}
+	return targetRef{}
 }
 
-// session tracks the currently observed machine session.
+// session tracks the currently observed machine or challenge session.
 type session struct {
-	machineID   int
-	machineName string
-	start       time.Time
+	kind  string
+	id    int
+	name  string
+	start time.Time
 }
 
-// observe updates the session for the given machine (nil when idle) and returns
-// the session start time, along with the previous session if it just ended.
-func (s *session) observe(m *htb.Machine, now time.Time) (time.Time, *history.Session) {
-	id, name := 0, ""
-	if m != nil {
-		id, name = m.ID, m.Name
-	}
-
-	if id == s.machineID {
+// observe updates the session for the given target and returns the session
+// start time, along with the previous session if it just ended.
+func (s *session) observe(t targetRef, now time.Time) (time.Time, *history.Session) {
+	if t.kind == s.kind && t.id == s.id {
 		return s.start, nil
 	}
 
 	var ended *history.Session
-	if s.machineID != 0 {
-		ended = &history.Session{
-			MachineID:   s.machineID,
-			MachineName: s.machineName,
-			StartedAt:   s.start,
-			EndedAt:     now,
-		}
+	if s.id != 0 {
+		ended = s.ended(now)
 	}
 
-	s.machineID, s.machineName = id, name
-	if id == 0 {
+	s.kind, s.id, s.name = t.kind, t.id, t.name
+	if t.id == 0 {
 		s.start = time.Time{}
 	} else {
 		s.start = now
 	}
 	return s.start, ended
+}
+
+// ended snapshots the in-flight session as a history record.
+func (s *session) ended(now time.Time) *history.Session {
+	out := &history.Session{Kind: s.kind, StartedAt: s.start, EndedAt: now}
+	if s.kind == "challenge" {
+		out.ChallengeID = s.id
+		out.ChallengeName = s.name
+		return out
+	}
+	out.Kind = "machine"
+	out.MachineID = s.id
+	out.MachineName = s.name
+	return out
 }

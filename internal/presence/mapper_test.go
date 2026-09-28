@@ -93,9 +93,21 @@ func TestMapRank(t *testing.T) {
 	}{
 		{
 			name: "shown with points",
-			opts: Options{ShowMachineName: true, ShowRank: true},
+			opts: Options{ShowMachineName: true, ShowRank: true, ShowPoints: true},
 			user: &htb.User{Rank: "Noob", Points: 120},
 			want: "Linux · Easy · Noob · 120 pts",
+		},
+		{
+			name: "rank without points",
+			opts: Options{ShowMachineName: true, ShowRank: true, ShowPoints: false},
+			user: &htb.User{Rank: "Noob", Points: 120},
+			want: "Linux · Easy · Noob",
+		},
+		{
+			name: "points without rank",
+			opts: Options{ShowMachineName: true, ShowPoints: true},
+			user: &htb.User{Rank: "Noob", Points: 120},
+			want: "Linux · Easy · 120 pts",
 		},
 		{
 			name: "shown without points",
@@ -144,8 +156,11 @@ func TestMapMachineAvatar(t *testing.T) {
 		if got.LargeText != "Vaccine" {
 			t.Errorf("LargeText = %q, want Vaccine", got.LargeText)
 		}
-		if got.SmallImage != LargeImageAsset {
-			t.Errorf("SmallImage = %q, want %q", got.SmallImage, LargeImageAsset)
+		if got.SmallImage != "linux" {
+			t.Errorf("SmallImage = %q, want linux", got.SmallImage)
+		}
+		if got.SmallText != "Linux" {
+			t.Errorf("SmallText = %q, want Linux", got.SmallText)
 		}
 	})
 
@@ -169,23 +184,72 @@ func TestMapMachineAvatar(t *testing.T) {
 	})
 }
 
+func TestMapChallengeButtonsFlagsAndIdle(t *testing.T) {
+	now := func() time.Time { return time.Unix(1_000, 0) }
+	expiry := time.Unix(4_000, 0)
+
+	t.Run("challenge", func(t *testing.T) {
+		got := Map(&htb.Activity{
+			Challenge: &htb.Challenge{ID: 7, Name: "Phonebook", Category: "Web", Difficulty: "Easy", ExpiresAt: expiry},
+			User:      &htb.User{ID: 5, Rank: "Noob"},
+		}, Options{ShowMachineName: true, ShowTimer: true, ShowButtons: true, ShowRank: true, SessionStart: time.Unix(500, 0), Now: now})
+		if got.Details != "Phonebook" || got.State != "Challenge · Web · Easy · Noob" {
+			t.Fatalf("details/state = %q / %q", got.Details, got.State)
+		}
+		if !got.EndTime.Equal(expiry) {
+			t.Errorf("EndTime = %s, want %s", got.EndTime, expiry)
+		}
+		if len(got.Buttons) != 2 || got.Buttons[0].Label != "Open challenge" || got.Buttons[1].URL != "https://app.hackthebox.com/users/5" {
+			t.Errorf("buttons = %+v", got.Buttons)
+		}
+	})
+
+	t.Run("flags", func(t *testing.T) {
+		got := Map(&htb.Activity{Machine: &htb.Machine{Name: "Vaccine", OS: "Linux", UserOwned: true}}, Options{ShowMachineName: true, ShowFlags: true})
+		if got.State != "Linux · user" {
+			t.Errorf("State = %q, want Linux · user", got.State)
+		}
+	})
+
+	t.Run("clear when idle", func(t *testing.T) {
+		if got := Map(&htb.Activity{}, Options{ClearWhenIdle: true}); got != nil {
+			t.Errorf("Map = %+v, want nil", got)
+		}
+	})
+
+	t.Run("custom idle", func(t *testing.T) {
+		got := Map(nil, Options{IdleText: "In the labs"})
+		if got.State != "In the labs" {
+			t.Errorf("State = %q", got.State)
+		}
+	})
+
+	t.Run("vpn", func(t *testing.T) {
+		got := Map(&htb.Activity{VPN: htb.VPN{Connected: true, Product: "fortresses"}}, Options{ClearWhenIdle: true})
+		if got == nil || got.State != "On the VPN · fortresses" {
+			t.Fatalf("vpn presence = %+v", got)
+		}
+	})
+}
+
 func TestSession(t *testing.T) {
 	first := time.Unix(1000, 0)
 	second := time.Unix(2000, 0)
 
 	var s session
 
-	if start, ended := s.observe(nil, first); !start.IsZero() || ended != nil {
+	if start, ended := s.observe(targetRef{}, first); !start.IsZero() || ended != nil {
 		t.Errorf("observe(idle) = (%s, %+v), want (zero, nil)", start, ended)
 	}
-	if start, ended := s.observe(&htb.Machine{ID: 289, Name: "Vaccine"}, first); !start.Equal(first) || ended != nil {
+	vaccine := targetRef{kind: "machine", id: 289, name: "Vaccine"}
+	if start, ended := s.observe(vaccine, first); !start.Equal(first) || ended != nil {
 		t.Errorf("observe(Vaccine) = (%s, %+v), want (%s, nil)", start, ended, first)
 	}
-	if start, ended := s.observe(&htb.Machine{ID: 289, Name: "Vaccine"}, second); !start.Equal(first) || ended != nil {
+	if start, ended := s.observe(vaccine, second); !start.Equal(first) || ended != nil {
 		t.Errorf("observe(same machine) = (%s, %+v), want (%s, nil)", start, ended, first)
 	}
 
-	start, ended := s.observe(&htb.Machine{ID: 290, Name: "Keeper"}, second)
+	start, ended := s.observe(targetRef{kind: "machine", id: 290, name: "Keeper"}, second)
 	if !start.Equal(second) {
 		t.Errorf("new machine start = %s, want %s", start, second)
 	}
@@ -197,7 +261,7 @@ func TestSession(t *testing.T) {
 		t.Errorf("ended = %+v", ended)
 	}
 
-	start, ended = s.observe(nil, second)
+	start, ended = s.observe(targetRef{}, second)
 	if !start.IsZero() {
 		t.Errorf("idle start = %s, want zero", start)
 	}

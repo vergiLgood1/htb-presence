@@ -20,6 +20,8 @@ type fakeFetcher struct {
 	user      *htb.User
 	userErr   error
 	userCalls int
+	vpn       htb.VPN
+	vpnErr    error
 }
 
 func (f *fakeFetcher) CurrentActivity(context.Context) (*htb.Activity, error) {
@@ -29,6 +31,10 @@ func (f *fakeFetcher) CurrentActivity(context.Context) (*htb.Activity, error) {
 func (f *fakeFetcher) User(context.Context) (*htb.User, error) {
 	f.userCalls++
 	return f.user, f.userErr
+}
+
+func (f *fakeFetcher) VPNConnected(context.Context) (htb.VPN, error) {
+	return f.vpn, f.vpnErr
 }
 
 type fakeClient struct {
@@ -340,7 +346,7 @@ func TestTickIncludesRank(t *testing.T) {
 	}
 	client := &fakeClient{}
 	s := testScheduler(fetcher, client)
-	s.Options = Options{ShowMachineName: true, ShowRank: true}
+	s.Options = Options{ShowMachineName: true, ShowRank: true, ShowPoints: true}
 
 	s.tick(context.Background())
 

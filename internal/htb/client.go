@@ -23,6 +23,11 @@ import (
 // DefaultBaseURL is the API root used by HTB's web app for machines and labs.
 const DefaultBaseURL = "https://labs.hackthebox.com/api/v4"
 
+// DefaultAccountURL is the API root htb-cli uses for connection status.
+// Labs and the main site have both served this endpoint; the client tries
+// DefaultBaseURL first and falls back here on 404.
+const DefaultAccountURL = "https://www.hackthebox.com/api/v4"
+
 // maxResponseBytes caps how much of a response is read, guarding against a
 // misbehaving or unexpected server.
 const maxResponseBytes = 1 << 20 // 1 MiB
@@ -38,6 +43,11 @@ var (
 	// ErrUnexpectedResponse indicates the API returned a shape this client does
 	// not recognize, for example after an upstream change.
 	ErrUnexpectedResponse = errors.New("htb: unexpected API response")
+
+	// ErrNotFound indicates the endpoint does not exist. Callers that probe
+	// optional activity endpoints treat this as "nothing active" rather than
+	// a hard failure. A 404 on a required endpoint is still returned.
+	ErrNotFound = errors.New("htb: not found")
 )
 
 // RateLimitError reports a 429 response, including any Retry-After hint.
@@ -65,34 +75,65 @@ type Machine struct {
 	IP         string
 	AvatarURL  string
 	ExpiresAt  time.Time
+	// UserOwned and RootOwned report whether the authenticated user has
+	// submitted the user and root flags. They come from the machine profile.
+	UserOwned bool
+	RootOwned bool
+}
+
+// Challenge is a spawned HTB challenge instance.
+type Challenge struct {
+	ID         int
+	Name       string
+	Category   string
+	Difficulty string
+	AvatarURL  string
+	ExpiresAt  time.Time
+}
+
+// VPN is the authenticated user's Hack The Box VPN connection.
+// The assigned tunnel address is intentionally not retained.
+type VPN struct {
+	Connected bool
+	// Product is the HTB product the tunnel is attached to, when the API
+	// reports one (for example "labs" or "fortresses").
+	Product string
 }
 
 // User describes the authenticated user's standing on HTB.
 type User struct {
+	ID     int
 	Name   string
 	Rank   string
 	Points int
 }
 
-// Activity is the user's current HTB activity. A nil Machine means the user has
-// no active machine; a nil User means rank/points were not loaded.
+// Activity is the user's current HTB activity. A nil Machine and a nil
+// Challenge mean nothing is spawned. A nil User means rank and points were
+// not loaded. VPN is filled in by the scheduler when it asks for connection
+// status; CurrentActivity leaves it zero.
 type Activity struct {
-	Machine *Machine
-	User    *User
+	Machine   *Machine
+	Challenge *Challenge
+	User      *User
+	VPN       VPN
 }
 
 // Fetcher fetches HTB state. It exists so the mapping and scheduling layers can
 // be tested without a live HTB account.
 type Fetcher interface {
-	// CurrentActivity reports the active machine, if any.
+	// CurrentActivity reports the active machine or challenge, if any.
 	CurrentActivity(ctx context.Context) (*Activity, error)
 	// User reports the authenticated user's rank and points.
 	User(ctx context.Context) (*User, error)
+	// VPNConnected reports whether an HTB VPN tunnel is up.
+	VPNConnected(ctx context.Context) (VPN, error)
 }
 
 // Client is an HTB API client.
 type Client struct {
 	baseURL    string
+	accountURL string
 	token      string
 	httpClient *http.Client
 }
@@ -105,6 +146,12 @@ func WithBaseURL(url string) Option {
 	return func(c *Client) { c.baseURL = url }
 }
 
+// WithAccountURL overrides the host used when connection status is not served
+// from the labs API root.
+func WithAccountURL(url string) Option {
+	return func(c *Client) { c.accountURL = url }
+}
+
 // WithHTTPClient overrides the underlying HTTP client.
 func WithHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.httpClient = hc }
@@ -113,8 +160,9 @@ func WithHTTPClient(hc *http.Client) Option {
 // NewClient returns an HTB client authenticating with the given App Token.
 func NewClient(token string, opts ...Option) *Client {
 	c := &Client{
-		baseURL: DefaultBaseURL,
-		token:   token,
+		baseURL:    DefaultBaseURL,
+		accountURL: DefaultAccountURL,
+		token:      token,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 			// Do not follow redirects: the API signals an expired or invalid
@@ -132,46 +180,31 @@ func NewClient(token string, opts ...Option) *Client {
 
 // CurrentActivity reports what the user is currently doing on HTB.
 //
-// A user with no active machine yields an Activity with a nil Machine, not an
-// error.
+// A lab machine wins over a season machine, which wins over a spawned
+// challenge. No spawned target yields an Activity with nil Machine and
+// Challenge, not an error. VPN status is not fetched here.
 func (c *Client) CurrentActivity(ctx context.Context) (*Activity, error) {
-	var active struct {
-		Info *struct {
-			ID        int    `json:"id"`
-			IP        string `json:"ip"`
-			ExpiresAt string `json:"expires_at"`
-		} `json:"info"`
-	}
-	if err := c.get(ctx, "/machine/active", &active); err != nil {
-		return nil, err
-	}
-	if active.Info == nil {
-		return &Activity{}, nil
-	}
-	if active.Info.ID == 0 {
-		return nil, fmt.Errorf("%w: /machine/active returned info without an id", ErrUnexpectedResponse)
-	}
-
-	machine := &Machine{
-		ID: active.Info.ID,
-		IP: active.Info.IP,
-	}
-	if active.Info.ExpiresAt != "" {
-		if t, err := parseHTBTime(active.Info.ExpiresAt); err == nil {
-			machine.ExpiresAt = t
-		}
-	}
-
-	profile, err := c.machineProfile(ctx, machine.ID)
+	machine, err := c.activeMachine(ctx)
 	if err != nil {
 		return nil, err
 	}
-	machine.Name = profile.Name
-	machine.OS = profile.OS
-	machine.Difficulty = profile.Difficulty
-	machine.AvatarURL = resolveAssetURL(profile.Avatar)
+	if machine != nil {
+		return &Activity{Machine: machine}, nil
+	}
 
-	return &Activity{Machine: machine}, nil
+	machine, err = c.activeSeasonMachine(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if machine != nil {
+		return &Activity{Machine: machine}, nil
+	}
+
+	challenge, err := c.activeChallenge(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &Activity{Challenge: challenge}, nil
 }
 
 // User reports the authenticated user's name, rank and points.
@@ -206,6 +239,7 @@ func (c *Client) User(ctx context.Context) (*User, error) {
 	}
 
 	return &User{
+		ID:     info.Info.ID,
 		Name:   info.Info.Name,
 		Rank:   profile.Profile.Rank,
 		Points: profile.Profile.Points,
@@ -218,6 +252,18 @@ type machineProfile struct {
 	OS         string `json:"os"`
 	Difficulty string `json:"difficultyText"`
 	Avatar     string `json:"avatar"`
+	UserOwned  bool   `json:"authUserInUserOwns"`
+	RootOwned  bool   `json:"authUserInRootOwns"`
+}
+
+// applyProfile copies display fields from a machine profile onto m.
+func applyProfile(m *Machine, p *machineProfile) {
+	m.Name = p.Name
+	m.OS = p.OS
+	m.Difficulty = p.Difficulty
+	m.AvatarURL = resolveAssetURL(p.Avatar)
+	m.UserOwned = p.UserOwned
+	m.RootOwned = p.RootOwned
 }
 
 // machineProfile fetches display details for the given machine id.
@@ -236,9 +282,41 @@ func (c *Client) machineProfile(ctx context.Context, id int) (*machineProfile, e
 
 // get performs an authenticated GET and decodes the JSON body into out.
 func (c *Client) get(ctx context.Context, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	return c.decode(ctx, c.baseURL+path, path, out)
+}
+
+// getOptional is get, except a 404 yields ok=false and a nil error.
+func (c *Client) getOptional(ctx context.Context, path string, out any) (bool, error) {
+	err := c.get(ctx, path, out)
+	if errors.Is(err, ErrNotFound) {
+		return false, nil
+	}
 	if err != nil {
-		return fmt.Errorf("building request: %w", err)
+		return false, err
+	}
+	return true, nil
+}
+
+// decode GETs rawURL and decodes the JSON body into out. label is used in errors.
+func (c *Client) decode(ctx context.Context, rawURL, label string, out any) error {
+	body, err := c.getBytes(ctx, rawURL, label)
+	if err != nil {
+		return err
+	}
+	if out == nil {
+		return nil
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("%w: decoding htb %s: %v", ErrUnexpectedResponse, label, err)
+	}
+	return nil
+}
+
+// getBytes performs an authenticated GET and returns the response body.
+func (c *Client) getBytes(ctx context.Context, rawURL, label string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("building request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("User-Agent", "htb-presence")
@@ -246,29 +324,28 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("calling htb %s: %w", path, err)
+		return nil, fmt.Errorf("calling htb %s: %w", label, err)
 	}
 	defer resp.Body.Close()
 
 	switch {
 	case resp.StatusCode == http.StatusTooManyRequests:
-		return &RateLimitError{RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After"))}
+		return nil, &RateLimitError{RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After"))}
 	case resp.StatusCode == http.StatusFound && strings.Contains(resp.Header.Get("Location"), "/login"):
-		return fmt.Errorf("%w: token rejected (redirected to login)", ErrAuth)
+		return nil, fmt.Errorf("%w: token rejected (redirected to login)", ErrAuth)
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
-		return fmt.Errorf("%w: status %d", ErrAuth, resp.StatusCode)
+		return nil, fmt.Errorf("%w: status %d", ErrAuth, resp.StatusCode)
+	case resp.StatusCode == http.StatusNotFound:
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, label)
 	case resp.StatusCode != http.StatusOK:
-		return fmt.Errorf("htb %s: unexpected status %d", path, resp.StatusCode)
+		return nil, fmt.Errorf("htb %s: unexpected status %d", label, resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
-		return fmt.Errorf("reading htb %s response: %w", path, err)
+		return nil, fmt.Errorf("reading htb %s response: %w", label, err)
 	}
-	if err := json.Unmarshal(body, out); err != nil {
-		return fmt.Errorf("%w: decoding htb %s: %v", ErrUnexpectedResponse, path, err)
-	}
-	return nil
+	return body, nil
 }
 
 // parseRetryAfter interprets a Retry-After header, which may be either a number

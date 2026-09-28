@@ -4,6 +4,7 @@ package presence
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,28 +15,82 @@ import (
 // LargeImageAsset is the Discord asset key for the Hack The Box logo.
 const LargeImageAsset = "htb"
 
+// DefaultIdleText is the state shown when nothing is spawned and presence is
+// not cleared.
+const DefaultIdleText = "Browsing…"
+
 // Options controls how activity is rendered.
 type Options struct {
-	// ShowMachineName includes the machine name as the presence details; when
-	// false the details stay generic.
+	// ShowMachineName includes the active target name as the presence details.
+	// When false, the details stay generic and the target's avatar and link
+	// are omitted. This also covers challenge names.
 	ShowMachineName bool
 
-	// ShowRank includes the user's rank and points in the presence state.
+	// ShowRank includes the user's rank in the presence state.
 	ShowRank bool
 
-	// ShowTimer includes an elapsed-time timer on the presence.
+	// ShowPoints includes the user's points in the presence state.
+	ShowPoints bool
+
+	// ShowTimer includes an elapsed-time timer, and a countdown when the
+	// spawned target has an expiry.
 	ShowTimer bool
 
-	// SessionStart is when the current machine session began, as far as this
+	// ShowFlags includes user/root own markers. Off by default.
+	ShowFlags bool
+
+	// ShowButtons adds link buttons for the active target and the HTB profile.
+	ShowButtons bool
+
+	// ClearWhenIdle publishes no presence when nothing is spawned and the VPN
+	// fallback is not showing.
+	ClearWhenIdle bool
+
+	// IdleText is the state used for the neutral fallback. Blank means
+	// DefaultIdleText.
+	IdleText string
+
+	// VPNFallback asks the scheduler to query VPN status when nothing is
+	// spawned. Map itself only looks at Activity.VPN.
+	VPNFallback bool
+
+	// SessionStart is when the current target session began, as far as this
 	// process can tell. It is only used when ShowTimer is set.
 	SessionStart time.Time
+
+	// Now supplies the current time for the expiry countdown. Nil means
+	// time.Now.
+	Now func() time.Time
 }
 
-// Map renders the current HTB activity as a Discord activity. A nil activity,
-// or one without an active machine, maps to a neutral browsing state rather
-// than stale data.
+// wantsUser reports whether rendering needs the HTB user profile.
+func (o Options) wantsUser() bool {
+	return o.ShowRank || o.ShowPoints || o.ShowButtons
+}
+
+// Map renders the current HTB activity as a Discord activity.
+//
+// A nil result means the presence should be cleared. That happens when
+// ClearWhenIdle is set and there is no spawned target and no VPN fallback
+// to show.
 func Map(activity *htb.Activity, opts Options) *discord.Activity {
-	idle := activity == nil || activity.Machine == nil
+	now := time.Now
+	if opts.Now != nil {
+		now = opts.Now
+	}
+
+	var machine *htb.Machine
+	var challenge *htb.Challenge
+	vpn := false
+	if activity != nil {
+		machine = activity.Machine
+		challenge = activity.Challenge
+		vpn = activity.VPN.Connected && machine == nil && challenge == nil
+	}
+	idle := machine == nil && challenge == nil && !vpn
+	if idle && opts.ClearWhenIdle {
+		return nil
+	}
 
 	out := &discord.Activity{
 		Details:    "Hack The Box",
@@ -44,45 +99,163 @@ func Map(activity *htb.Activity, opts Options) *discord.Activity {
 	}
 
 	var stateParts []string
-	if idle {
-		stateParts = append(stateParts, "Browsing…")
-	} else {
-		m := activity.Machine
-		if opts.ShowMachineName {
-			out.Details = orDefault(m.Name, "A machine")
-		}
-		stateParts = append(stateParts, m.OS, m.Difficulty)
+	var expires time.Time
+	spawned := machine != nil || challenge != nil
 
-		// The machine avatar is only shown when the name is, since the image
-		// would otherwise reveal a machine the user chose to hide.
-		if opts.ShowMachineName && m.AvatarURL != "" {
-			out.LargeImage = m.AvatarURL
-			out.LargeText = orDefault(m.Name, "A machine")
-			out.SmallImage = LargeImageAsset
-			out.SmallText = "Hack The Box"
+	switch {
+	case machine != nil:
+		stateParts, expires = mapMachine(out, machine, opts)
+	case challenge != nil:
+		stateParts, expires = mapChallenge(out, challenge, opts)
+	case vpn:
+		label := "On the VPN"
+		if product := strings.TrimSpace(activity.VPN.Product); product != "" {
+			label += " · " + product
 		}
+		stateParts = append(stateParts, label)
+	default:
+		text := strings.TrimSpace(opts.IdleText)
+		if text == "" {
+			text = DefaultIdleText
+		}
+		stateParts = append(stateParts, text)
 	}
 
-	if opts.ShowRank && activity != nil && activity.User != nil {
-		stateParts = append(stateParts, rankLabel(activity.User))
+	if opts.ShowRank || opts.ShowPoints {
+		if activity != nil && activity.User != nil {
+			stateParts = append(stateParts, rankLabel(activity.User, opts.ShowRank, opts.ShowPoints))
+		}
 	}
 	out.State = joinNonEmpty(" · ", stateParts...)
 
-	if opts.ShowTimer && !idle && !opts.SessionStart.IsZero() {
+	if opts.ShowTimer && spawned && !opts.SessionStart.IsZero() {
 		out.StartTime = opts.SessionStart
+	}
+	if opts.ShowTimer && spawned && !expires.IsZero() && expires.After(now()) {
+		out.EndTime = expires
+	}
+	if opts.ShowButtons {
+		out.Buttons = append(out.Buttons, buttons(activity, opts)...)
 	}
 	return out
 }
 
-// rankLabel renders a user's rank and points, e.g. "Pro Hacker · 1234 pts".
-func rankLabel(u *htb.User) string {
-	if u.Rank == "" {
+// mapMachine fills the machine-specific presence fields and returns state
+// parts plus the instance expiry.
+func mapMachine(out *discord.Activity, m *htb.Machine, opts Options) ([]string, time.Time) {
+	if opts.ShowMachineName {
+		out.Details = orDefault(m.Name, "A machine")
+		if m.AvatarURL != "" {
+			out.LargeImage = m.AvatarURL
+			out.LargeText = orDefault(m.Name, "A machine")
+		}
+	}
+	parts := []string{m.OS, m.Difficulty}
+	if opts.ShowFlags {
+		parts = append(parts, flagLabel(m))
+	}
+	applySmallImage(out, osAsset(m.OS), m.OS)
+	return parts, m.ExpiresAt
+}
+
+// mapChallenge fills the challenge-specific presence fields.
+func mapChallenge(out *discord.Activity, ch *htb.Challenge, opts Options) ([]string, time.Time) {
+	if opts.ShowMachineName {
+		out.Details = orDefault(ch.Name, "A challenge")
+		if ch.AvatarURL != "" {
+			out.LargeImage = ch.AvatarURL
+			out.LargeText = orDefault(ch.Name, "A challenge")
+		}
+	}
+	applySmallImage(out, "", "")
+	return []string{"Challenge", ch.Category, ch.Difficulty}, ch.ExpiresAt
+}
+
+// applySmallImage sets the small asset. An OS badge wins; otherwise the HTB
+// logo is used as the badge when the large image is already a target avatar.
+func applySmallImage(out *discord.Activity, asset, text string) {
+	if asset != "" {
+		out.SmallImage = asset
+		out.SmallText = text
+		return
+	}
+	if out.LargeImage != LargeImageAsset {
+		out.SmallImage = LargeImageAsset
+		out.SmallText = "Hack The Box"
+	}
+}
+
+// buttons returns the link buttons the user opted into, at most two.
+func buttons(activity *htb.Activity, opts Options) []discord.Button {
+	var out []discord.Button
+	if opts.ShowMachineName && activity != nil {
+		if m := activity.Machine; m != nil && strings.TrimSpace(m.Name) != "" {
+			out = append(out, discord.Button{
+				Label: "Open machine",
+				URL:   "https://app.hackthebox.com/machines/" + url.PathEscape(m.Name),
+			})
+		} else if ch := activity.Challenge; ch != nil && ch.ID != 0 {
+			out = append(out, discord.Button{
+				Label: "Open challenge",
+				URL:   fmt.Sprintf("https://app.hackthebox.com/challenges/%d", ch.ID),
+			})
+		}
+	}
+	if activity != nil && activity.User != nil && activity.User.ID != 0 {
+		out = append(out, discord.Button{
+			Label: "HTB profile",
+			URL:   fmt.Sprintf("https://app.hackthebox.com/users/%d", activity.User.ID),
+		})
+	}
+	if len(out) > 2 {
+		out = out[:2]
+	}
+	return out
+}
+
+// osAsset maps an HTB OS name to a Discord art-asset key. Unknown systems
+// return an empty key so the caller can fall back to the HTB logo.
+func osAsset(osName string) string {
+	switch strings.ToLower(strings.TrimSpace(osName)) {
+	case "linux":
+		return "linux"
+	case "windows":
+		return "windows"
+	case "freebsd":
+		return "freebsd"
+	case "openbsd":
+		return "openbsd"
+	case "solaris":
+		return "solaris"
+	default:
 		return ""
 	}
-	if u.Points > 0 {
-		return fmt.Sprintf("%s · %d pts", u.Rank, u.Points)
+}
+
+// flagLabel renders which flags the user has submitted.
+func flagLabel(m *htb.Machine) string {
+	switch {
+	case m.UserOwned && m.RootOwned:
+		return "user · root"
+	case m.UserOwned:
+		return "user"
+	case m.RootOwned:
+		return "root"
+	default:
+		return ""
 	}
-	return u.Rank
+}
+
+// rankLabel renders rank and points according to the toggles.
+func rankLabel(u *htb.User, showRank, showPoints bool) string {
+	var parts []string
+	if showRank && strings.TrimSpace(u.Rank) != "" {
+		parts = append(parts, u.Rank)
+	}
+	if showPoints && u.Points > 0 {
+		parts = append(parts, fmt.Sprintf("%d pts", u.Points))
+	}
+	return strings.Join(parts, " · ")
 }
 
 // joinNonEmpty joins the non-blank parts with sep.
