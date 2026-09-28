@@ -6,10 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-28
+
 ### Added
 
 - Active challenge detection via `/challenge/active` (a 404 is treated as "no
   challenge") and season machines via `/season/machine/active`.
+- The active machine or challenge avatar is shown as the presence large image, with
+  the uploaded `htb` logo as the fallback. Hidden together with the target name when
+  `show_machine_name: false`.
 - Presence countdown from the instance `expires_at`, Discord link buttons, and an
   OS badge (`linux`, `windows`, `freebsd`, `openbsd`, `solaris`) on the small image.
 - Config: `show_points`, `show_flags` (off by default), `show_buttons`,
@@ -18,6 +23,8 @@ All notable changes to this project are documented here. The format is based on
   if that call fails, a local route to an HTB lab prefix is used instead.
 - `htb-presence -init`, `HTB_API_TOKEN` / `DISCORD_CLIENT_ID` overrides, and
   `htb-presence -stats` for the JSONL session log.
+- `HTB_VPN_LIVE=1 go test ./internal/vpn -run Live -v`, which reads the real route
+  table and logs every route it saw instead of only exercising the parsers.
 - Example user service files in `docs/examples/`.
 - Acceptable Use Policy notes in `docs/legal.md` (reviewed 2026-09-28).
 
@@ -79,5 +86,6 @@ First public release.
 - The Discord large-image asset (`htb`) must be uploaded to the Discord application for
   the logo to render.
 
-[Unreleased]: https://github.com/vergiLgood1/htb-presence/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vergiLgood1/htb-presence/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/vergiLgood1/htb-presence/releases/tag/v0.2.0
 [0.1.0]: https://github.com/vergiLgood1/htb-presence/releases/tag/v0.1.0
