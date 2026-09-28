@@ -1,6 +1,48 @@
 package vpn
 
-import "testing"
+import (
+	"context"
+	"os"
+	"testing"
+	"time"
+)
+
+// TestLocalConnectedLive reads this machine's real route table and reports what
+// the fallback would decide. It only runs when HTB_VPN_LIVE is set, so the
+// default `go test ./...` stays deterministic:
+//
+//	HTB_VPN_LIVE=1 go test ./internal/vpn -run Live -v
+//
+// A machine without the HTB VPN legitimately has no lab route, so the test
+// asserts only that the lookup itself succeeds and logs every route it saw.
+// The tunnel_like column is what to check first when a live VPN is not
+// detected: a tunnel interface that is not named tun*/tap*/utun*/wintun*
+// (a WireGuard wg0, for example) is parsed but never counts.
+func TestLocalConnectedLive(t *testing.T) {
+	if os.Getenv("HTB_VPN_LIVE") == "" {
+		t.Skip("set HTB_VPN_LIVE=1 to read the real route table")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	routes, err := readRoutes(ctx)
+	if err != nil {
+		t.Fatalf("readRoutes: %v", err)
+	}
+	t.Logf("%d IPv4 routes", len(routes))
+	for _, r := range routes {
+		ones, _ := r.mask.Size()
+		t.Logf("  iface=%s dest=%s/%d tunnel_like=%v counts_for_htb=%v",
+			r.iface, r.dest, ones, tunLike(r.iface), coversHTB([]route{r}))
+	}
+
+	connected, err := LocalConnected(ctx)
+	if err != nil {
+		t.Fatalf("LocalConnected: %v", err)
+	}
+	t.Logf("local HTB route detected: %v", connected)
+}
 
 func TestCoversHTB(t *testing.T) {
 	proc := "" +
