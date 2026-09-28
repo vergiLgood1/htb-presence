@@ -256,21 +256,52 @@ func parseConnectionArray(body []byte) (VPN, error) {
 func parseConnectionObject(body []byte) (VPN, error) {
 	var obj struct {
 		Status     json.RawMessage `json:"status"`
-		Connection *struct {
-			IP4 string `json:"ip4"`
-		} `json:"connection"`
+		Connection json.RawMessage `json:"connection"`
 	}
 	if err := json.Unmarshal(body, &obj); err != nil {
 		return VPN{}, fmt.Errorf("%w: decoding connection status: %v", ErrUnexpectedResponse, err)
 	}
-	on, ok := statusConnected(obj.Status)
-	if !ok && obj.Connection == nil {
+	if on, ok := statusConnected(obj.Status); ok {
+		return VPN{Connected: on}, nil
+	}
+	switch classifyConnection(obj.Connection) {
+	case connectionOpen:
+		return VPN{Connected: true}, nil
+	case connectionNotConnected:
+		return VPN{Connected: false}, nil
+	default:
 		return VPN{}, fmt.Errorf("%w: connection status is missing status", ErrUnexpectedResponse)
 	}
-	if obj.Connection != nil && !ok {
-		on = true
+}
+
+// connectionState classifies the connection field of a connection-status
+// object.
+type connectionState int
+
+const (
+	// connectionUnknown means the field was absent or null, so it says
+	// nothing on its own.
+	connectionUnknown connectionState = iota
+	// connectionOpen means the field was an object holding tunnel addresses.
+	connectionOpen
+	// connectionNotConnected means the field carried the API's "not
+	// connected" marker.
+	connectionNotConnected
+)
+
+// classifyConnection reads the connection field, which the API has returned as
+// an object while a tunnel is up and as the string "not connected" when it is
+// not.
+func classifyConnection(raw json.RawMessage) connectionState {
+	raw = bytes.TrimSpace(raw)
+	switch {
+	case len(raw) == 0, bytes.Equal(raw, []byte("null")):
+		return connectionUnknown
+	case raw[0] == '{':
+		return connectionOpen
+	default:
+		return connectionNotConnected
 	}
-	return VPN{Connected: on}, nil
 }
 
 // statusConnected reports whether a status value means connected, and whether

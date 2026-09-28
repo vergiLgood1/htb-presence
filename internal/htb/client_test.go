@@ -336,13 +336,69 @@ func TestVPNConnected(t *testing.T) {
 	}
 }
 
+// TestParseConnectionStatusObject covers the object shape recorded by the
+// community API docs, including the "not connected" marker, which is a string
+// rather than an object.
 func TestParseConnectionStatusObject(t *testing.T) {
-	vpn, err := parseConnectionStatus([]byte(`{"status":"0","connection":null}`))
-	if err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		name      string
+		body      string
+		want      bool
+		wantError bool
+	}{
+		{
+			name: "documented connected",
+			body: `{"status":"1","connection":{"name":"Propolis","ip4":"10.10.14.12","ip6":"dead:beef:2::100a","down":"0","up":"0.01"}}`,
+			want: true,
+		},
+		{
+			name: "documented not connected",
+			body: `{"status":"0","connection":"not connected"}`,
+			want: false,
+		},
+		{
+			name: "status zero with a null connection",
+			body: `{"status":"0","connection":null}`,
+			want: false,
+		},
+		{
+			name: "tunnel object without a status",
+			body: `{"connection":{"ip4":"10.10.14.5"}}`,
+			want: true,
+		},
+		{
+			name: "not connected marker without a status",
+			body: `{"connection":"not connected"}`,
+			want: false,
+		},
+		{
+			name:      "null connection without a status",
+			body:      `{"connection":null}`,
+			wantError: true,
+		},
+		{
+			name:      "empty object",
+			body:      `{}`,
+			wantError: true,
+		},
 	}
-	if vpn.Connected {
-		t.Errorf("VPN = %+v, want disconnected", vpn)
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			vpn, err := parseConnectionStatus([]byte(tc.body))
+			if tc.wantError {
+				if err == nil {
+					t.Fatalf("parseConnectionStatus(%s) = %+v, want an error", tc.body, vpn)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseConnectionStatus(%s): %v", tc.body, err)
+			}
+			if vpn.Connected != tc.want {
+				t.Errorf("Connected = %v, want %v", vpn.Connected, tc.want)
+			}
+		})
 	}
 }
 
