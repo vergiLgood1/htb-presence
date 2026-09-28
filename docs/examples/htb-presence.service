@@ -1,0 +1,25 @@
+# User systemd unit. Install with:
+#   mkdir -p ~/.config/systemd/user
+#   cp docs/examples/htb-presence.service ~/.config/systemd/user/
+#   # edit ExecStart to the binary path
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now htb-presence.service
+#
+# Tokens can live in the config file, or in a drop-in:
+#   systemctl --user edit htb-presence.service
+#   [Service]
+#   Environment=HTB_API_TOKEN=...
+#   Environment=DISCORD_CLIENT_ID=...
+
+[Unit]
+Description=Hack The Box Discord Rich Presence
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/htb-presence
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

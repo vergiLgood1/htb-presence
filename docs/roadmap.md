@@ -32,8 +32,8 @@ static placeholder) as your Discord Rich Presence.
 
 ## Phase 2 — Real activity mapping
 
-- [x] Map actual HTB session data (active machine name; challenge sessions not
-      implemented) into the presence payload.
+- [x] Map actual HTB session data (active machine, season machine, and spawned
+      challenge) into the presence payload.
 - [x] Idle/fallback state when no active session.
 - [x] Change-detection so Discord is only updated when the activity actually changes
       (FR-7).
@@ -69,7 +69,9 @@ Ideas parked here are explicitly **out of scope** for v1 (see
 `docs/requirements.md` §2.2) and only worth picking up once the above is stable:
 
 - [x] Optional local history of sessions (for personal stats, not shared) — see
-      `internal/history`; opt-in via `history.file`.
+      `internal/history`; opt-in via `history.file`. `htb-presence -stats` prints it.
+- [x] Spawned challenges, season machines, expiry countdown, presence buttons,
+      OS badges, idle/VPN fallbacks, `-init`, and env overrides.
 - [x] Config hot-reload without restart — a polling watcher restarts the scheduler when
       the config file changes.
 - [ ] System tray icon / GUI wrapper instead of pure CLI — *not pursued*: requires

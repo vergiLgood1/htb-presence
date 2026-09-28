@@ -8,12 +8,15 @@ you having to update anything by hand.
 
 ## Features
 
-- 🟢 Live Discord Rich Presence while an HTB machine session is active
+- 🟢 Live Discord Rich Presence for the active machine, season machine, or spawned challenge
 - 🧩 Machine name, OS and difficulty, plus your HTB rank and points
-- ⏱️ Session elapsed-time timer
-- 🔒 Privacy toggles: hide the machine name, hide rank, hide the timer
+- ⏱️ Elapsed-time timer and a countdown to the instance expiry
+- 🔗 Buttons that open the machine or challenge and your HTB profile
+- 🔒 Privacy toggles: hide the target name, rank, points, timer, or flag progress
+- 🌙 Clear presence when nothing is spawned, or show a custom idle line
+- 🛰️ "On the VPN" when a lab is not spawned but the HTB VPN is up
 - 🔄 Automatic reconnect to Discord IPC and backoff on HTB API errors (honors `Retry-After`)
-- ⚙️ Simple YAML config file
+- ⚙️ YAML config, environment overrides, `init`, and a local session summary
 - 🖥️ Single static binary, cross-platform (Linux, macOS, Windows)
 
 ## Status
@@ -23,9 +26,16 @@ Working v1: the core loop (poll HTB → map → push to Discord) runs end-to-end
 
 Known limitations:
 
-- Only the *active machine* is tracked; HTB challenge sessions are not detected.
+- Sherlock, Fortress, Endgame, and Pro Lab sessions are not detected as their own
+  activity. A Fortress or Endgame VPN can still show up as "On the VPN" when
+  `/connection/status` names that product. Starting Point boxes are machines and
+  show up through the active-machine check.
+- `/challenge/active` is not in HTB's published surface. A 404 there is treated as
+  "no challenge" so machine presence keeps working.
 - Discord Rich Presence requires the Discord **desktop** client running locally (it does
   not work with Discord in a browser).
+- The logo and OS badges are Discord application art assets. Upload them or the
+  images stay blank. See [Discord art assets](#discord-art-assets).
 
 ## Requirements
 
@@ -62,16 +72,25 @@ GitHub release with checksums.
 default; `%APPDATA%\htb-presence\config.yaml` on Windows). Use `-config` to point it
 somewhere else.
 
+`htb-presence -init` writes that file (mode `600`) and prints the asset checklist.
+`HTB_API_TOKEN` and `DISCORD_CLIENT_ID` override the file when they are set.
+
 ```yaml
 htb:
   api_token: "your-htb-app-token"
   poll_interval: 30s        # minimum 15s
+  vpn_fallback: true        # "On the VPN" when nothing is spawned
 
 discord:
   client_id: "your-discord-application-id"
-  show_machine_name: true   # privacy toggles
+  show_machine_name: true   # also hides challenge names, avatars, and target links
   show_rank: true
-  show_timer: true
+  show_points: true
+  show_timer: true          # elapsed time, plus a countdown to expires_at
+  show_flags: false         # "user" / "root" owns; off because it is spoilery
+  show_buttons: true
+  clear_when_idle: false    # clear presence instead of the idle line
+  idle_text: "Browsing…"
 
 history:
   file: ""                  # optional JSONL session log; empty disables it
@@ -82,13 +101,33 @@ The App Token is never logged in full — it is redacted as e.g. `eyJ0…`.
 ## Usage
 
 ```bash
+htb-presence -init                    # write a starter config and exit
 htb-presence                          # run the background presence loop
 htb-presence -once                    # fetch activity once and print it (smoke test)
+htb-presence -stats                   # summarize history.file
 htb-presence -version                 # print the version
 htb-presence -config /path/config.yaml
 ```
 
 Stop it with Ctrl-C (SIGINT) or SIGTERM; it clears the Discord presence on exit.
+
+To keep it running after logout, install the user service in
+[`docs/examples/htb-presence.service`](docs/examples/htb-presence.service) (Linux) or
+[`docs/examples/htb-presence.plist`](docs/examples/htb-presence.plist) (macOS). Edit
+`ExecStart` / `ProgramArguments` so they point at your binary.
+
+## Discord art assets
+
+In the [developer portal](https://discord.com/developers/applications), open your
+application → Rich Presence → Art Assets and upload:
+
+| Key | Used for |
+|---|---|
+| `htb` | Logo, shown as the large image when a target avatar is hidden or missing |
+| `linux`, `windows`, `freebsd`, `openbsd`, `solaris` | Optional OS badge on the small image |
+
+Asset names are case-sensitive and must match those keys. Without `htb`, presence
+still works; the image is just blank.
 
 ## How it works (short version)
 

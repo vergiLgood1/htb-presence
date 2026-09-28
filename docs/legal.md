@@ -9,11 +9,37 @@ change; re-check periodically.
 
 ## Status
 
-- [ ] HTB Terms of Service reviewed against the points below.
-- [ ] Decision recorded: which points permit read-only polling, and which need
-      mitigation or a documented caveat.
+- [x] HTB's current public legal set reviewed against the points below.
+- [x] Decision recorded: read-only polling of the internal API is **not** expressly
+      authorised. Keep the disclaimer, stay read-only, and leave account risk with
+      the user. Do not describe this project as compliant.
 
-**Last reviewed:** _not yet_ — replace with a date (e.g. `2026-09-18`) once checked.
+**Last reviewed:** 2026-09-28.
+
+**Sources opened that day:**
+
+- <https://www.hackthebox.com/legal> (index of PDFs; `/terms` redirects here).
+- Acceptable Use Policy, effective 01 April 2026:
+  <https://www.hackthebox.com/hubfs/Legal/AUP.pdf>
+- End User Subscription Agreement and User Agreement PDFs linked from the same page
+  (`EUSA.pdf`, `UA.pdf`). Those two are mostly subscription and content terms; the
+  automation rules that matter here are in the AUP.
+
+**What the AUP says, in short** (not a substitute for the PDF):
+
+- Rule 8: do not use bots, scrapers, or automated tools to access or extract from
+  the platform.
+- Section 6.1: do not let an automated system access the Services except where a
+  Service Agreement with Hack The Box expressly authorises it.
+- Section 6.3: programmatic access is allowed where Hack The Box authorises it
+  through its APIs, and even then you must not evade rate limits or harvest
+  responses into a dataset.
+
+An App Token is a credential the user can generate. The AUP does not say that
+token makes internal v4 polling an authorised API. This file therefore does not
+treat `htb-presence` as permitted. The practical consequence for this repo is
+unchanged: read-only, conservative polling, no flag submission, a visible
+disclaimer, and the user decides whether to run it.
 
 ## Why this matters
 

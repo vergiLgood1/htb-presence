@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  User LaunchAgent. Install with:
+    cp docs/examples/htb-presence.plist ~/Library/LaunchAgents/com.vergilgood1.htb-presence.plist
+    # edit ProgramArguments to the binary path
+    launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.vergilgood1.htb-presence.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.vergilgood1.htb-presence</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/htb-presence</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+</dict>
+</plist>

@@ -104,12 +104,9 @@ considering a change complete. If `golangci-lint` is configured later, run that 
 
 ## Open questions worth flagging to a human
 
-- Exact endpoint(s) and response shape for "current active machine/challenge" — confirm
-  against `GoToolSharing/htb-cli` source and `Propolisa/htb-api-docs` before
-  implementing `internal/htb`, since HTB's API is unofficial/unversioned-for-us and may
-  differ from what's written in `docs/architecture.md`.
-- Whether to include the optional local VPN-detection fallback (see
-  `docs/architecture.md` §2.2) in v1 or defer it — it adds OS-specific code
-  (checking for a `tun`/OpenVPN interface) for a secondary signal.
-- Whether HTB's current Terms of Service need a second look before shipping a public
-  release, given the API is unofficial — track findings in `docs/legal.md`.
+- Sherlock, Fortress, Endgame, and Pro Lab still have no confirmed "what am I doing
+  right now" endpoint. `/connection/status` may name the VPN product; do not add more
+  speculative polls per tick.
+- HTB's Acceptable Use Policy (effective 01 April 2026) does not expressly authorise
+  this client. Findings and the decision to keep shipping as unofficial, read-only,
+  at the user's risk are in `docs/legal.md`. Re-check when that PDF changes.

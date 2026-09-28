@@ -44,6 +44,11 @@ flowchart LR
   fail fast at startup with a clear message.
 - Also carries the optional, off-by-default local session-history path (`history.file`);
   editing the file is picked up at runtime by a polling watcher.
+- Discord display toggles: `show_machine_name` (also covers challenge names),
+  `show_rank`, `show_points`, `show_timer`, `show_flags`, `show_buttons`,
+  `clear_when_idle`, and `idle_text`. `htb.vpn_fallback` defaults to true.
+- `HTB_API_TOKEN` and `DISCORD_CLIENT_ID` override the file. `-init` writes a
+  mode-`600` starter file.
 
 ### 2.2 HTB Client (`internal/htb`)
 
@@ -65,9 +70,11 @@ community reverse-engineering:
 
 **Responsibilities:**
   - Authenticate using the user's App Token (`Authorization: Bearer <token>`).
-  - Fetch the user's current activity — the specific endpoint(s) for "active
-    machine/session" must be confirmed against `GoToolSharing/htb-cli`'s source and/or
-    `Propolisa/htb-api-docs` at implementation time, not assumed from this document.
+  - Fetch the user's current activity, in order: `/machine/active`, then
+    `/season/machine/active`, then `/challenge/active` (a 404 means "no challenge").
+    A machine profile supplies name, OS, difficulty, avatar, and
+    `authUserInUserOwns` / `authUserInRootOwns`. A challenge with only an id is
+    followed by `/challenge/info/{id}`.
   - Optionally fetch rank/points for display (account id from `/user/info`, then
     `/user/profile/basic/{id}` for rank and points).
   - Translate HTTP/auth/rate-limit errors into typed errors the scheduler can react to
@@ -78,11 +85,12 @@ community reverse-engineering:
   that knows about HTB's HTTP shapes — everything downstream (mapper, scheduler) only
   sees a small internal `Activity` type. This keeps an eventual API break to one
   package.
-- **Fallback signal (no API call required):** local VPN connection state can be used as
-  a cheap, always-available secondary signal — e.g. checking for an active OpenVPN
-  process/`tun` interface — mirroring part of what `Pirrandi/htb-presence` does. This is
-  optional and only meant to enrich/validate state, not replace the API-based activity
-  fetch.
+- **VPN fallback:** when nothing is spawned and `vpn_fallback` is on, the scheduler
+  calls `/connection/status` (labs root, then `www.hackthebox.com` on 404). If that
+  call fails for a reason other than a rate limit, `internal/vpn` looks for a local
+  route to `10.10.10.0/24`, `10.10.11.0/24`, or `10.129.0.0/16` with prefix length
+  at least 16. Linux and macOS also require a `tun`/`tap`/`utun`/`wintun` interface.
+  This enriches the idle state; it does not replace the activity fetch.
 
 ### 2.3 Scheduler / Poll Loop (`internal/presence` or `cmd/htb-presence`)
 

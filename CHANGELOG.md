@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Active challenge detection via `/challenge/active` (a 404 is treated as "no
+  challenge") and season machines via `/season/machine/active`.
+- Presence countdown from the instance `expires_at`, Discord link buttons, and an
+  OS badge (`linux`, `windows`, `freebsd`, `openbsd`, `solaris`) on the small image.
+- Config: `show_points`, `show_flags` (off by default), `show_buttons`,
+  `clear_when_idle`, `idle_text`, and `vpn_fallback`.
+- "On the VPN" when nothing is spawned. HTB `/connection/status` is tried first;
+  if that call fails, a local route to an HTB lab prefix is used instead.
+- `htb-presence -init`, `HTB_API_TOKEN` / `DISCORD_CLIENT_ID` overrides, and
+  `htb-presence -stats` for the JSONL session log.
+- Example user service files in `docs/examples/`.
+- Acceptable Use Policy notes in `docs/legal.md` (reviewed 2026-09-28).
+
+### Changed
+
+- `show_machine_name: false` also hides challenge names, target avatars, and the
+  target button. Rank and points are separate toggles; points stay on when
+  `show_rank` is on, matching previous presence text.
+
 ## [0.1.0] - 2026-09-18
 
 First public release.
@@ -31,7 +52,7 @@ First public release.
 
 ### Known limitations
 
-- Only the active machine is tracked; HTB challenge sessions are not detected.
+- Sherlock, Fortress, Endgame, and Pro Lab are not tracked as their own activity.
 - Windows and macOS builds are cross-compiled but not runtime-tested.
 - The Discord large-image asset (`htb`) must be uploaded to the Discord application for
   the logo to render.
