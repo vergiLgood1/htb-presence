@@ -44,16 +44,26 @@ type History struct {
 type HTB struct {
 	APIToken     string   `yaml:"api_token"`
 	PollInterval Duration `yaml:"poll_interval"`
+
+	// VPNFallback shows an "On the VPN" presence when nothing is spawned but
+	// the HTB VPN is up. It defaults to true.
+	VPNFallback bool `yaml:"vpn_fallback"`
 }
 
 // Discord holds the Discord Rich Presence settings.
 type Discord struct {
 	ClientID string `yaml:"client_id"`
 
-	// Privacy toggles. All default to true (see Default).
-	ShowMachineName bool `yaml:"show_machine_name"`
-	ShowRank        bool `yaml:"show_rank"`
-	ShowTimer       bool `yaml:"show_timer"`
+	// Privacy toggles. ShowMachineName, ShowRank, ShowPoints, ShowTimer and
+	// ShowButtons default to true. ShowFlags and ClearWhenIdle default to false.
+	ShowMachineName bool   `yaml:"show_machine_name"`
+	ShowRank        bool   `yaml:"show_rank"`
+	ShowPoints      bool   `yaml:"show_points"`
+	ShowTimer       bool   `yaml:"show_timer"`
+	ShowFlags       bool   `yaml:"show_flags"`
+	ShowButtons     bool   `yaml:"show_buttons"`
+	ClearWhenIdle   bool   `yaml:"clear_when_idle"`
+	IdleText        string `yaml:"idle_text"`
 }
 
 // Duration is a time.Duration that unmarshals from a Go duration string such as
@@ -78,11 +88,17 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 // are layered on top.
 func Default() Config {
 	return Config{
-		HTB: HTB{PollInterval: Duration(DefaultPollInterval)},
+		HTB: HTB{
+			PollInterval: Duration(DefaultPollInterval),
+			VPNFallback:  true,
+		},
 		Discord: Discord{
 			ShowMachineName: true,
 			ShowRank:        true,
+			ShowPoints:      true,
 			ShowTimer:       true,
+			ShowButtons:     true,
+			IdleText:        "Browsing…",
 		},
 	}
 }
@@ -101,6 +117,7 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
+	cfg.applyEnv()
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
@@ -131,6 +148,29 @@ func (c *Config) Validate() error {
 		return errors.New("discord.client_id is required")
 	}
 	return nil
+}
+
+// applyEnv lets HTB_API_TOKEN and DISCORD_CLIENT_ID override the file.
+func (c *Config) applyEnv() {
+	if v := strings.TrimSpace(os.Getenv("HTB_API_TOKEN")); v != "" {
+		c.HTB.APIToken = v
+	}
+	if v := strings.TrimSpace(os.Getenv("DISCORD_CLIENT_ID")); v != "" {
+		c.Discord.ClientID = v
+	}
+}
+
+// PermWarning reports when path is readable by group or other users.
+// An empty string means the mode is fine or could not be read.
+func PermWarning(path string) string {
+	fi, err := os.Stat(path)
+	if err != nil || fi.IsDir() {
+		return ""
+	}
+	if fi.Mode().Perm()&0o077 != 0 {
+		return fmt.Sprintf("config file %s is mode %o; chmod 600 is recommended", path, fi.Mode().Perm())
+	}
+	return ""
 }
 
 // ValidateToken checks that token looks like an HTB App Token. HTB App Tokens

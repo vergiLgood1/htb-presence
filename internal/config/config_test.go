@@ -18,6 +18,8 @@ func writeConfig(t *testing.T, contents string) string {
 }
 
 func TestLoad(t *testing.T) {
+	t.Setenv("HTB_API_TOKEN", "")
+	t.Setenv("DISCORD_CLIENT_ID", "")
 	tests := []struct {
 		name    string
 		yaml    string
@@ -64,9 +66,17 @@ discord:
 				if got := time.Duration(cfg.HTB.PollInterval); got != DefaultPollInterval {
 					t.Errorf("PollInterval = %s, want default %s", got, DefaultPollInterval)
 				}
-				if !cfg.Discord.ShowMachineName || !cfg.Discord.ShowRank || !cfg.Discord.ShowTimer {
-					t.Errorf("ShowMachineName/ShowRank/ShowTimer = %v/%v/%v, want true/true/true",
-						cfg.Discord.ShowMachineName, cfg.Discord.ShowRank, cfg.Discord.ShowTimer)
+				if !cfg.Discord.ShowMachineName || !cfg.Discord.ShowRank || !cfg.Discord.ShowTimer || !cfg.Discord.ShowPoints || !cfg.Discord.ShowButtons {
+					t.Errorf("expected name/rank/timer/points/buttons to default on")
+				}
+				if cfg.Discord.ShowFlags || cfg.Discord.ClearWhenIdle {
+					t.Errorf("ShowFlags/ClearWhenIdle = %v/%v, want false/false", cfg.Discord.ShowFlags, cfg.Discord.ClearWhenIdle)
+				}
+				if !cfg.HTB.VPNFallback {
+					t.Error("VPNFallback = false, want true")
+				}
+				if cfg.Discord.IdleText != "Browsing…" {
+					t.Errorf("IdleText = %q, want Browsing…", cfg.Discord.IdleText)
 				}
 			},
 		},
@@ -121,6 +131,45 @@ discord:
 				tt.check(t, cfg)
 			}
 		})
+	}
+}
+
+func TestLoadEnvOverride(t *testing.T) {
+	t.Setenv("HTB_API_TOKEN", "env.token.value")
+	t.Setenv("DISCORD_CLIENT_ID", "999")
+	cfg, err := Load(writeConfig(t, "htb:\n  api_token: \"aaa.bbb.ccc\"\ndiscord:\n  client_id: \"1\"\n"))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.HTB.APIToken != "env.token.value" || cfg.Discord.ClientID != "999" {
+		t.Errorf("token/client = %q/%q, want env overrides", cfg.HTB.APIToken, cfg.Discord.ClientID)
+	}
+}
+
+func TestWriteTemplate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "htb-presence", "config.yaml")
+	if err := WriteTemplate(path, false); err != nil {
+		t.Fatalf("WriteTemplate: %v", err)
+	}
+	if err := WriteTemplate(path, false); err == nil {
+		t.Fatal("second WriteTemplate without -force succeeded")
+	}
+	if err := WriteTemplate(path, true); err != nil {
+		t.Fatalf("force WriteTemplate: %v", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %o, want 600", info.Mode().Perm())
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "show_flags: false") || !strings.Contains(string(data), "vpn_fallback: true") {
+		t.Fatalf("template missing new keys:\n%s", data)
 	}
 }
 
