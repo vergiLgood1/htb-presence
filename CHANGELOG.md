@@ -15,6 +15,9 @@ All notable changes to this project are documented here. The format is based on
 - The presence timer is now always the elapsed playing time. The instance expiry
   no longer renders as a countdown; it rides along in the avatar hover text as
   `Layover · ends 3 Oct 17:50`.
+- `show_points: true` now always renders the score, including a brand new
+  account with `0 pts`. It previously hid the number when points were zero,
+  which made the toggle look broken next to a rank line like `Noob`.
 
 ## [0.2.0] - 2026-09-28
 

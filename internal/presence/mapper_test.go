@@ -119,6 +119,12 @@ func TestMapRank(t *testing.T) {
 			want: "Noob",
 		},
 		{
+			name: "zero points still shown",
+			opts: Options{ShowMachineName: true, ShowRank: true, ShowPoints: true},
+			user: &htb.User{Rank: "Noob"},
+			want: "Noob · 0 pts",
+		},
+		{
 			name: "hidden",
 			opts: Options{ShowMachineName: true, ShowRank: false},
 			user: &htb.User{Rank: "Noob", Points: 120},
@@ -188,14 +194,13 @@ func TestMapMachineAvatar(t *testing.T) {
 }
 
 func TestMapChallengeButtonsFlagsAndIdle(t *testing.T) {
-	now := func() time.Time { return time.Unix(1_000, 0) }
 	expiry := time.Unix(4_000, 0)
 
 	t.Run("challenge", func(t *testing.T) {
 		got := Map(&htb.Activity{
 			Challenge: &htb.Challenge{ID: 7, Name: "Phonebook", Category: "Web", Difficulty: "Easy", ExpiresAt: expiry},
 			User:      &htb.User{ID: 5, Rank: "Noob"},
-		}, Options{ShowMachineName: true, ShowTimer: true, ShowButtons: true, ShowRank: true, SessionStart: time.Unix(500, 0), Now: now})
+		}, Options{ShowMachineName: true, ShowTimer: true, ShowButtons: true, ShowRank: true, SessionStart: time.Unix(500, 0)})
 		if got.Details != "Phonebook (Web · Easy)" || got.State != "Noob" {
 			t.Fatalf("details/state = %q / %q, want Phonebook (Web · Easy) / Noob", got.Details, got.State)
 		}

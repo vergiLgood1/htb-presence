@@ -139,7 +139,6 @@ func (s *Scheduler) tick(ctx context.Context) time.Duration {
 
 	opts := s.Options
 	opts.SessionStart = start
-	opts.Now = s.now
 	next := Map(activity, opts)
 
 	if s.published && discord.Same(s.last, next) {

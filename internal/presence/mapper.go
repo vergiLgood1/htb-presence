@@ -57,10 +57,6 @@ type Options struct {
 	// SessionStart is when the current target session began, as far as this
 	// process can tell. It is only used when ShowTimer is set.
 	SessionStart time.Time
-
-	// Now supplies the current time for the expiry countdown. Nil means
-	// time.Now.
-	Now func() time.Time
 }
 
 // wantsUser reports whether rendering needs the HTB user profile.
@@ -272,12 +268,16 @@ func flagLabel(m *htb.Machine) string {
 }
 
 // rankLabel renders rank and points according to the toggles.
+//
+// Points render whenever the toggle is on, including a zero score: a brand new
+// account really does have 0 points, and silently dropping the number made the
+// toggle look broken.
 func rankLabel(u *htb.User, showRank, showPoints bool) string {
 	var parts []string
 	if showRank && strings.TrimSpace(u.Rank) != "" {
 		parts = append(parts, u.Rank)
 	}
-	if showPoints && u.Points > 0 {
+	if showPoints {
 		parts = append(parts, fmt.Sprintf("%d pts", u.Points))
 	}
 	return strings.Join(parts, " · ")
