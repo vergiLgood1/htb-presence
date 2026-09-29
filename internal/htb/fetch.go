@@ -36,8 +36,13 @@ func (c *Client) activeMachine(ctx context.Context) (*Machine, error) {
 	return machine, nil
 }
 
-// activeSeasonMachine loads /season/machine/active. A 404 or a null data
-// object means there is no season machine.
+// activeSeasonMachine loads /season/machine/active.
+//
+// The endpoint describes the season's current machine whether or not the user
+// is on it, so an unspawned entry is not activity: the machine counts only when
+// play_info reports a spawned or active instance, or when the API assigned an
+// instance IP. A 404, a null data object, or an unspawned machine means there
+// is no season machine.
 func (c *Client) activeSeasonMachine(ctx context.Context) (*Machine, error) {
 	var resp struct {
 		Data *struct {
@@ -45,6 +50,8 @@ func (c *Client) activeSeasonMachine(ctx context.Context) (*Machine, error) {
 			IP        string `json:"ip"`
 			ExpiresAt string `json:"expires_at"`
 			PlayInfo  *struct {
+				IsSpawned bool   `json:"is_spawned"`
+				IsActive  bool   `json:"is_active"`
 				ExpiresAt string `json:"expires_at"`
 			} `json:"play_info"`
 		} `json:"data"`
@@ -55,6 +62,17 @@ func (c *Client) activeSeasonMachine(ctx context.Context) (*Machine, error) {
 	}
 	if resp.Data.ID == 0 {
 		return nil, fmt.Errorf("%w: /season/machine/active returned data without an id", ErrUnexpectedResponse)
+	}
+
+	// Spawn evidence lives in play_info, not in the presence of a data
+	// object. is_spawning alone does not count: the instance cannot be
+	// touched yet, so naming it in the presence would be premature.
+	spawned := strings.TrimSpace(resp.Data.IP) != ""
+	if resp.Data.PlayInfo != nil {
+		spawned = spawned || resp.Data.PlayInfo.IsSpawned || resp.Data.PlayInfo.IsActive
+	}
+	if !spawned {
+		return nil, nil
 	}
 
 	expires := resp.Data.ExpiresAt

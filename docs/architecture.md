@@ -75,6 +75,9 @@ community reverse-engineering:
   - Authenticate using the user's App Token (`Authorization: Bearer <token>`).
   - Fetch the user's current activity, in order: `/machine/active`, then
     `/season/machine/active`, then `/challenge/active` (a 404 means "no challenge").
+    `/season/machine/active` describes the season's current machine even when the
+    user never spawned one, so it only counts as activity when `play_info` reports
+    `is_spawned`/`is_active` or the API assigned an instance IP.
     A machine profile supplies name, OS, difficulty, avatar, and
     `authUserInUserOwns` / `authUserInRootOwns`. A challenge with only an id is
     followed by `/challenge/info/{id}`.

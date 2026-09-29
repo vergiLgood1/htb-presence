@@ -293,26 +293,73 @@ func TestCurrentActivityChallenge(t *testing.T) {
 }
 
 func TestCurrentActivitySeasonMachine(t *testing.T) {
-	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/machine/active":
-			io.WriteString(w, `{"info":null}`)
-		case "/season/machine/active":
-			io.WriteString(w, `{"data":{"id":9,"ip":"10.10.11.9","play_info":{"expires_at":"2026-09-18 22:00:00"}}}`)
-		case "/machine/profile/9":
-			io.WriteString(w, `{"info":{"name":"Seasonal","os":"Windows","difficultyText":"Hard","authUserInUserOwns":true,"authUserInRootOwns":true}}`)
-		default:
-			http.NotFound(w, r)
-		}
-	})
-
-	activity, err := client.CurrentActivity(context.Background())
-	if err != nil {
-		t.Fatalf("CurrentActivity: %v", err)
+	tests := []struct {
+		name      string
+		season    string
+		wantID    int
+		wantSpawn bool
+	}{
+		{
+			name:      "spawned with play info",
+			season:    `{"data":{"id":9,"ip":"10.10.11.9","play_info":{"expires_at":"2026-09-18 22:00:00"}}}`,
+			wantID:    9,
+			wantSpawn: true,
+		},
+		{
+			name:      "spawned flag without an ip",
+			season:    `{"data":{"id":9,"ip":null,"play_info":{"is_spawned":true,"expires_at":"2026-09-18 22:00:00"}}}`,
+			wantID:    9,
+			wantSpawn: true,
+		},
+		{
+			// The real shape of the endpoint for an account that never
+			// touched the season machine: a data object full of metadata
+			// and a play_info that says nothing is spawned.
+			name:      "season machine not spawned",
+			season:    `{"data":{"id":984,"name":"Layover","ip":null,"play_info":{"is_spawned":false,"is_spawning":false,"is_active":false,"active_player_count":0,"expires_at":null}}}`,
+			wantSpawn: false,
+		},
+		{
+			name:      "missing play info and no ip",
+			season:    `{"data":{"id":984,"name":"Layover","ip":null}}`,
+			wantSpawn: false,
+		},
+		{
+			name:      "spawning alone is not enough",
+			season:    `{"data":{"id":984,"ip":null,"play_info":{"is_spawned":false,"is_spawning":true,"is_active":false}}}`,
+			wantSpawn: false,
+		},
 	}
-	m := activity.Machine
-	if m == nil || m.Name != "Seasonal" || m.OS != "Windows" || !m.UserOwned || !m.RootOwned {
-		t.Fatalf("Machine = %+v", m)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/machine/active":
+					io.WriteString(w, `{"info":null}`)
+				case "/season/machine/active":
+					io.WriteString(w, tt.season)
+				case "/machine/profile/9":
+					io.WriteString(w, `{"info":{"name":"Seasonal","os":"Windows","difficultyText":"Hard","authUserInUserOwns":true,"authUserInRootOwns":true}}`)
+				default:
+					http.NotFound(w, r)
+				}
+			})
+
+			activity, err := client.CurrentActivity(context.Background())
+			if err != nil {
+				t.Fatalf("CurrentActivity: %v", err)
+			}
+			m := activity.Machine
+			if !tt.wantSpawn {
+				if m != nil {
+					t.Fatalf("Machine = %+v, want nil for an unspawned season machine", m)
+				}
+				return
+			}
+			if m == nil || m.ID != tt.wantID || m.Name != "Seasonal" || m.OS != "Windows" || !m.UserOwned || !m.RootOwned {
+				t.Fatalf("Machine = %+v", m)
+			}
+		})
 	}
 }
 

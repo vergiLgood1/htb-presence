@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- The presence no longer names the season machine when it was never spawned.
+  `/season/machine/active` returns the season's current machine (for example
+  `Layover`) even for accounts that never touched it, so the entry now only
+  counts as activity when `play_info` reports `is_spawned`/`is_active` or the
+  API assigned an instance IP. Previously the account sat idle behind a VPN
+  while Discord showed a specific machine as if it were being played.
+
 ### Changed
 
 - Target OS and difficulty moved from the state line to the details line, next to
